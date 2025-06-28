@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <errno.h>
-#include "stc/cstr.h"
-#include "stc/coroutine.h"
+#include <stc/cstr.h>
+#include <stc/coroutine.h>
 
 // Read file line by line using coroutines:
 
@@ -9,23 +9,21 @@ struct file_read {
     const char* filename;
     FILE* fp;
     cstr line;
-    cco_state cco;
+    cco_base base;
 };
 
 int file_read(struct file_read* g)
 {
-    cco_routine (g) {
+    cco_async (g) {
         g->fp = fopen(g->filename, "r");
         if (g->fp == NULL) cco_return;
         g->line = (cstr){0};
-
         cco_await( !cstr_getline(&g->line, g->fp) );
-
-        cco_finally:
-        printf("finish\n");
-        cstr_drop(&g->line);
-        if (g->fp) fclose(g->fp);
     }
+
+    printf("finish\n");
+    cstr_drop(&g->line);
+    if (g->fp) fclose(g->fp);
     return 0;
 }
 

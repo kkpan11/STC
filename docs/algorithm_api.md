@@ -11,7 +11,7 @@ descriptive and reduces chances of making mistakes. It is generally easier to re
 
 ### c_each, c_each_reverse, c_each_n, c_each_kv
 ```c++
-#include "stc/common.h"
+#include <stc/common.h>
 ```
 
 | Usage                                              | Description                               |
@@ -23,10 +23,10 @@ descriptive and reduces chances of making mistakes. It is generally easier to re
 | for (`c_each_n`(it, **CntType**, container, n))    | Iteratate `n` first elements. Index variable is `{it}_index`. |
 | for (`c_each_kv`(key, val, **CntType**, container))| Iterate maps with "structured binding" |
 <!--{%raw%}-->
-[ [Run this code](https://godbolt.org/z/cYhTEr1vM) ]
+[ [Run this code](https://godbolt.org/z/xK8s5cKc9) ]
 ```c++
-#define i_type IMap, int, int
-#include "stc/sortedmap.h"
+#define T IMap, int, int
+#include <stc/sortedmap.h>
 // ...
 IMap map = c_make(IMap, {{23,1}, {3,2}, {7,3}, {5,4}, {12,5}});
 
@@ -115,16 +115,16 @@ for (c_range(i, 30, 0, -5)) printf(" %lld", i);
 For-loop variant of `c_filter`in generic algorithms.
 ```c++
 #include <stdio.h>
-#include "stc/algorithm.h"
-#define i_type IVec,int
-#include "stc/stack.h"
+#include <stc/algorithm.h>
+#define T IVec, int
+#include <stc/stack.h>
 
 int main(void) {
     IVec vec = c_make(IVec, {0, 1, 2, 3, 4, 5, 80, 6, 7, 80, 8, 9, 80,
                              10, 11, 12, 13, 14, 15, 80, 16, 17});
-	#define ff_skipValue(i, x) (*i.ref != (x))
-	#define ff_isEven(i) ((*i.ref & 1) == 0)
-	#define ff_square(i) (*i.ref * *i.ref)
+    #define ff_skipValue(i, x) (*i.ref != (x))
+    #define ff_isEven(i) ((*i.ref & 1) == 0)
+    #define ff_square(i) (*i.ref * *i.ref)
 
     int sum = 0;
     for (c_ffilter(i, IVec, vec, true
@@ -157,35 +157,41 @@ Synopsis:
 ```c++
 // Define a sum type
 c_sumtype (SumType,
-    (VariantEnum1, VariantType1),
+    (VariantTagA, VariantTypeA),
+    (VariantTagB, VariantTypeB),
+    (VariantTagC, VariantTagB_type), // use same payload type as VariantTagB
     ...
-    (VariantEnumN, VariantTypeN)
+    (VariantTagN, VariantTypeN),     // optional final comma
 );
 
-SumType c_variant(VariantEnum tag, VariantType value); // Sum type constructor
-bool    c_holds(const SumType* obj, VariantEnum tag);  // does obj hold VariantType?
-int     c_tag_index(SumType* obj);                     // 1-based index (mostly for debug)
+SumType           c_variant(VariantTag tag, VariantType value); // Sum type constructor
+bool              c_is_variant(SumType* obj, VariantTag tag);   // Does obj hold VariantType?
+VariantTag_type*  c_get_if(SumType* obj, VariantTag tag);       // NULL if obj does does not hold the tag.
+int               c_variant_index(SumType* obj);                // (for debug only)
 
 // Use a sum type (1)
 c_when (SumType* obj) {
-    c_is(VariantEnum1, VariantType1* x) <body>;
-    c_is(VariantEnum2) c_or_is(VariantEnum3) <body>;
-    ...
-    c_otherwise <body>;
+    c_is(VariantTagA, VariantTagA_type* x)
+        ActionA(x);
+    c_is_same(VariantTagB, VariantTagC, VariantTagD)       // same payload types (checked)
+        ActionBCD(obj->VariantTagB.var);
+    c_is(VariantTagX) c_or_is(VariantTagY)                 // different payload types
+        ActionXY();
+    c_otherwise                                            // optional, removes exhaustiveness-check
+        ActionElse(obj);
 }
 
 // Use a sum type (2)
-if (c_is(SumType* obj, VariantEnum1, VariantType1* x))
-    <body>;
+if (c_is(SumType* obj, VariantTagA, VariantTagA_type* x))
+    ActionA(x);
 ```
 The **c_when** statement is exhaustive. The compiler will give a warning if not all variants are
 covered by **c_is** (requires `-Wall` or `-Wswitch` gcc/clang compiler flag). The first enum value
-is deliberately set to 1 in order to easier detect non/zero-initialized variants.
+is deliberately set to 1 in order to easier detect zero or not initialized variants.
 
 * Note: The `x` variables in the synopsis are "auto" type declared/defined - see examples.
-* Caveat 1: The use of `continue` in a `c_when` or `if (c_is())` block, while `c_when` is inside a loop will
-not work as expected. It will only break out of the `c_when`-block. Instead, use `goto` to jump to the
-end of the loop. `break` will break out of `c_when`, i.e. it behaves like `switch`.
+* Caveat 1: `c_when()` and `if (c_is())` behaves like a one-iteration loop; i.e, the use of `continue`
+  and `break` will just break out of its block (meaning not out of any outer loop/switch).
 * Caveat 2: Sum types will generally not work in coroutines because the `x` variable is local and therefore
 will not be preserved across `cco_yield..` / `cco_await..`.
 * Caveat 3: In the second (2) usage, `c_is(obj,VE,x)` combined with `&&` or `||` will not compile.
@@ -195,7 +201,7 @@ will not be preserved across `cco_yield..` / `cco_await..`.
 [ [Run this code](https://godbolt.org/z/PEvjGff3E) ]
 ```c++
 #include <stdio.h>
-#include "stc/algorithm.h"
+#include <stc/algorithm.h>
 
 c_sumtype (Tree,
     (Empty, _Bool),
@@ -234,8 +240,8 @@ its data type (payload). Because C does not have namespaces, it is recommended t
 ```c++
 // https://doc.rust-lang.org/book/ch18-03-pattern-syntax.html#destructuring-enums
 #include <stdio.h>
-#include "stc/algorithm.h"
-#include "stc/cstr.h"
+#include <stc/algorithm.h>
+#include <stc/cstr.h>
 
 c_sumtype (Color,
     (ColorRgb, struct {int32 r, g, b;}),
@@ -261,7 +267,7 @@ int main(void) {
         c_variant(MessageChangeColor, c_variant(ColorHsv, {0, 160, 255})),
     };
 
-    for (c_range(i, c_arraylen(msg)))
+    for (c_range(i, c_countof(msg)))
     c_when (&msg[i]) {
         c_is(MessageQuit) {
             printf("The Quit variant has no data to destructure.\n");
@@ -297,18 +303,20 @@ These work on any container. *c_make()* may also be used for **cspan** views.
 - **c_put_items** - push (raw) values onto any container from an initializer list
 - **c_drop** - drop (destroy) multiple containers of the same type
 
-[ [Run this code](https://godbolt.org/z/1nKfYh3nz) ]
+[ [Run this code](https://godbolt.org/z/TadM4zeeb) ]
 <!--{%raw%}-->
 ```c++
 #include <stdio.h>
-#define i_type Vec, int
-#include "stc/vec.h"
+#define T Vec, int
+#include <stc/vec.h>
 
-#define i_type Map, int, int
-#include "stc/hashmap.h"
+#define T Map, int, int
+#include <stc/hashmap.h>
 
-c_func (split_map,(Map map), ->, struct {Vec keys, values;}) {
-    split_map_result out = {0};
+struct VecPair { Vec keys, values; }
+split_map(Map map)
+{
+    struct VecPair out = {0};
     for (c_each_kv(k, v, Map, map)) {
         Vec_push(&out.keys, *k);
         Vec_push(&out.values, *v);
@@ -331,7 +339,7 @@ int main(void) {
         printf("[%d %d] ", *k, *v);
     puts("");
 
-    split_map_result res = split_map(map);
+    struct VecPair res = split_map(map);
 
     for (c_each(i, Vec, res.values))
         printf("%d ", *i.ref);
@@ -373,21 +381,21 @@ Erase linearily in containers using a predicate. `value` is a pointer to each el
 - void `c_erase_if`(**CntType**, cnt_ptr, pred). Use with ***list**, ***hmap***, ***hset***, ***smap***, and ***sset***.
 - void `c_eraseremove_if`(**CntType**, cnt_ptr, pred). Use with ***stack***, ***vec***, ***deque***, and ***queue*** only.
 
-[ [Run this code](https://godbolt.org/z/88PMq7WP1) ]
+[ [Run this code](https://godbolt.org/z/rYoPM34Y9) ]
 <!--{%raw%}-->
 ```c++
 #include <stdio.h>
-#include "stc/cstr.h"
-#include "stc/algorithm.h"
+#include <stc/cstr.h>
+#include <stc/algorithm.h>
 
-#define i_type Vec, int, (c_use_eq)
-#include "stc/stack.h"
+#define T Vec, int, (c_use_eq)
+#include <stc/stack.h>
 
-#define i_type List, int, (c_use_eq)
-#include "stc/list.h"
+#define T List, int, (c_use_eq)
+#include <stc/list.h>
 
-#define i_type Map, cstr, int, (c_keypro)
-#include "stc/sortedmap.h"
+#define T Map, cstr, int, (c_keypro)
+#include <stc/sortedmap.h>
 
 int main(void)
 {
@@ -475,12 +483,12 @@ It enables a subset of functional programming like in other popular languages.
 | **Type** `c_flt_src1`, `c_flt_src2`| Pointer variables to current unmapped source values |
 | **Type** `value1`, `value2`        | Pointer variables to (possible mapped) values |
 
-[ [Run this example](https://godbolt.org/z/W87fTdvYd) ]
+[ [Run this example](https://godbolt.org/z/rWax63bdK) ]
 ```c++
 #include <stdio.h>
-#define i_type Vec, int
-#include "stc/stack.h"
-#include "stc/algorithm.h"
+#define T Vec, int
+#include <stc/stack.h>
+#include <stc/algorithm.h>
 
 int main(void)
 {
@@ -521,12 +529,12 @@ if (result)
 
 ### sort, lower_bound, binary_search
 
-- `X` refers to the template name specified by `i_type` or `i_key`.
+- `X` refers to the template name specified by `T` or `i_key`.
 - All containers with random access may be sorted, including regular C-arrays, i.e. **stack**, **vec**
 and **deque** when either `i_use_cmp`, `i_cmp` or `i_less` is defined.
 - Linked **list** may also be sorted, i.e. only *X_sort()* is available.
 ```c++
-                // Sort c-arrays by defining i_type and include "stc/sort.h":
+                // Sort c-arrays by defining T and include "stc/sort.h":
 void            X_sort(const X array[], isize len);
 isize           X_lower_bound(const X array[], i_key key, isize len);
 isize           X_binary_search(const X array[], i_key key, isize len);
@@ -541,7 +549,7 @@ void            X_sort_lowhigh(X* self, isize low, isize high);
 isize           X_lower_bound_range(const X* self, i_key key, isize start, isize end);
 isize           X_binary_search_range(const X* self, i_key key, isize start, isize end);
 ```
-`i_type` may be customized in the normal way, along with comparison function `i_cmp` or `i_less`.
+`T` may be customized in the normal way, along with comparison function `i_cmp` or `i_less`.
 
 ##### Performance
 The *X_sort()*, *X_sort_lowhigh()* functions are about twice as fast as *qsort()* and comparable in
@@ -549,23 +557,23 @@ speed with *std::sort()**. Both *X_binary_seach()* and *X_lower_bound()* are abo
 c++ *std::lower_bound()*.
 ##### Usage examples
 
-[ [Run this code](https://godbolt.org/z/dvr3zYKhY) ]
+[ [Run this code](https://godbolt.org/z/YE613YbT4) ]
 ```c++
 #define i_key int // sort a regular c-array of ints
-#include "stc/sort.h"
+#include <stc/sort.h>
 #include <stdio.h>
 
 int main(void) {
     int arr[] = {5, 3, 5, 9, 7, 4, 7, 2, 4, 9, 3, 1, 2, 6, 4};
-    ints_sort(arr, c_arraylen(arr)); // `ints` derived from the `i_key` name
+    ints_sort(arr, c_countof(arr)); // `ints` derived from the `i_key` name
 
-    for (c_range(i, c_arraylen(arr)))
+    for (c_range(i, c_countof(arr)))
         printf(" %d", arr[i]);
 }
 ```
 ```c++
-#define i_type MyDeq, int, (c_use_cmp) // int elements, enable sorting
-#include "stc/deque.h"
+#define T MyDeq, int, (c_use_cmp) // int elements, enable sorting
+#include <stc/deque.h>
 #include <stdio.h>
 
 int main(void) {
@@ -615,10 +623,10 @@ c_with (pthread_mutex_lock(&lock), pthread_mutex_unlock(&lock))
 **Example 2**: Load each line of a text file into a vector of strings:
 ```c++
 #include <errno.h>
-#include "stc/cstr.h"
+#include <stc/cstr.h>
 
 #define i_keypro cstr
-#include "stc/vec.h"
+#include <stc/vec.h>
 
 // receiver should check errno variable
 vec_cstr readFile(const char* name)
@@ -688,46 +696,6 @@ c_filter(crange, c_iota(3), true
 ```
 </details>
 <details>
-<summary><b>c_func</b> - Function with on-the-fly defined return type</summary>
-
-### c_func
-
-A macro for conveniently defining functions with multiple return values. This is for encouraging
-to write functions that returns extra error context when error occurs, or just multiple return values.
-
-[ [Run this code](https://godbolt.org/z/MsYG75Eae) ]
-```c++
-Vec get_data(void) {
-    return c_make(Vec, {1, 2, 3, 4, 5, 6});
-}
-
-// same as get_data(), but with the c_func macro "syntax".
-c_func (get_data1,(void), ->, Vec) {
-    return c_make(Vec, {1, 2, 3, 4, 5, 6});
-}
-
-// return two Vec types "on-the-fly".
-c_func (get_data2,(void), ->, struct {Vec v1, v2;}) {
-    return (get_data2_result){
-        .v1 = c_make(Vec, {1, 2, 3, 4, 5, 6}),
-        .v2 = c_make(Vec, {7, 8, 9, 10, 11})
-    };
-}
-
-// return a Vec, and an err code which is 0 if OK.
-c_func (load_data,(const char* fname), ->, struct {Vec vec; int err;}) {
-    FILE* fp = fopen(fname, "rb");
-    if (fp == 0)
-        return (load_data_result){.err = 1};
-
-    load_data_result out = {Vec_with_size(1024, '\0')};
-    fread(out.vec.data, sizeof(out.vec.data[0]), 1024, fp);
-    fclose(fp);
-    return out;
-}
-```
-</details>
-<details>
 <summary><b>c_new, c_delete, c_malloc, etc.</b> - Allocation helpers</summary>
 
 ### c_new, c_delete
@@ -737,7 +705,7 @@ c_func (load_data,(const char* fname), ->, struct {Vec vec; int err;}) {
 - void `c_delete`(**Type**, ptr) - *Type_drop(ptr)* and *c_free(ptr, ..)* allocated on the heap. NULL is OK.
 - void `c_delete_n`(**Type**, arr, n) - *Type_drop(&arr[i])* and *c_free(arr, ..)* of ***n*** objects allocated on the heap. (NULL, 0) is OK.
 ```c++
-#include "stc/cstr.h"
+#include <stc/cstr.h>
 
 cstr* stringptr = c_new (cstr, cstr_from("Hello"));
 printf("%s\n", cstr_str(stringp));
@@ -756,9 +724,9 @@ default in containers unless `i_malloc`, `i_calloc`, `i_realloc`, and `i_free` a
 
 </details>
 <details>
-<summary><b>c_swap, c_arraylen, c_const_cast, c_safe_case</b></summary>
+<summary><b>c_swap, c_countof, c_const_cast, c_safe_case</b></summary>
 
-### c_swap, c_arraylen, c_const_cast, c_safe_case
+### c_swap, c_countof, c_const_cast, c_safe_case
 Side effect- and typesafe macro for swapping internals of two objects of same type:
 ```c++
 double x = 1.0, y = 2.0;
@@ -768,7 +736,7 @@ c_swap(&x, &y);
 Return number of elements in an array. array must not be a pointer!
 ```c++
 int array[] = {1, 2, 3, 4};
-isize n = c_arraylen(array);
+isize n = c_countof(array);
 ```
 
 Type-safe casting a from const (pointer):

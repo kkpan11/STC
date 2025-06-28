@@ -15,8 +15,8 @@ See the c++ class [std::map](https://en.cppreference.com/w/cpp/container/map) fo
 ## Header file and declaration
 
 ```c++
-#define i_type <ct>,<kt>,<vt> // shorthand for defining i_type, i_key, i_val
-#define i_type <t>            // container type name (default: smap_{i_key})
+#define T <ct>,<kt>,<vt>[,<op>]  // shorthand for defining T, i_key, i_val
+#define T <ct>                // container type name (default: smap_{i_key})
 // One of the following:
 #define i_key <t>             // key type
 #define i_keyclass <t>        // key type, and bind <t>_clone() and <t>_drop() function names
@@ -44,9 +44,9 @@ See the c++ class [std::map](https://en.cppreference.com/w/cpp/container/map) fo
 #define i_valfrom <fn>        // conversion func i_valraw => i_val
 #define i_valtoraw <fn>       // conversion func i_val* => i_valraw
 
-#include "stc/sortedmap.h"
+#include <stc/sortedmap.h>
 ```
-- In the following, `X` is the value of `i_key` unless `i_type` is defined.
+- In the following, `X` is the value of `i_key` unless `T` is defined.
 - **emplace**-functions are only available when `i_keyraw`/`i_valraw` are implicitly or explicitly defined.
 
 ## Methods
@@ -56,10 +56,10 @@ smap_X          smap_X_init(void);
 sset_X          smap_X_with_capacity(isize cap);
 
 smap_X          smap_X_clone(smap_x map);
-void            smap_X_copy(smap_X* self, smap_X other);
+void            smap_X_copy(smap_X* self, const smap_X* other);
 void            smap_X_take(smap_X* self, smap_X unowned);                               // take ownership of unowned
 smap_X          smap_X_move(smap_X* self);                                               // move
-void            smap_X_drop(smap_X* self);                                               // destructor
+void            smap_X_drop(const smap_X* self);                                         // destructor
 
 void            smap_X_clear(smap_X* self);
 bool            smap_X_reserve(smap_X* self, isize cap);
@@ -98,7 +98,7 @@ smap_X_iter     smap_X_end(const smap_X* self);
 void            smap_X_next(smap_X_iter* iter);
 smap_X_iter     smap_X_advance(smap_X_iter it, isize n);
 
-i_key           smap_X_value_clone(i_key val);
+i_key           smap_X_value_clone(const smap_X* self, i_key val);
 smap_X_raw      smap_X_value_toraw(const i_key* pval);
 void            smap_X_value_drop(i_key* pval);
 ```
@@ -120,11 +120,11 @@ void            smap_X_value_drop(i_key* pval);
 
 [ [Run this code](https://godbolt.org/z/q1EjeKx4b) ]
 ```c++
-#include "stc/cstr.h"
+#include <stc/cstr.h>
 
 #define i_keypro cstr // special macro for i_key = cstr
 #define i_valpro cstr // ditto
-#include "stc/sortedmap.h"
+#include <stc/sortedmap.h>
 
 int main(void)
 {
@@ -157,11 +157,11 @@ Translate a
 [C++ example using *insert* and *emplace*](https://en.cppreference.com/w/cpp/container/map/try_emplace)
  to STC:
 
-[ [Run this code](https://godbolt.org/z/z91aM68n6) ]
+[ [Run this code](https://godbolt.org/z/anabce8ox) ]
 ```c++
-#include "stc/cstr.h"
-#define i_type strmap, cstr, cstr, (c_keypro | c_valpro)
-#include "stc/sortedmap.h"
+#include <stc/cstr.h>
+#define T strmap, cstr, cstr, (c_keypro | c_valpro)
+#include <stc/sortedmap.h>
 
 static void print_node(const strmap_value* node) {
     printf("[%s] = %s\n", cstr_str(&node->first), cstr_str(&node->second));
@@ -189,14 +189,14 @@ int main(void)
 ### Example 3
 This example uses a smap with cstr as mapped value. Note the `i_valpro` usage.
 
-[ [Run this code](https://godbolt.org/z/bs9ca511a) ]
+[ [Run this code](https://godbolt.org/z/PTW9h9b56) ]
 <!--{%raw%}-->
 ```c++
-#include "stc/cstr.h"
+#include <stc/cstr.h>
 
 
-#define i_type IdMap, int, cstr, (c_valpro)
-#include "stc/sortedmap.h"
+#define T IdMap, int, cstr, (c_valpro)
+#include <stc/sortedmap.h>
 
 int main(void)
 {
@@ -223,7 +223,7 @@ int main(void)
 ### Example 4
 Demonstrate smap with plain-old-data key type Vec3i and int as mapped type: smap<Vec3i, int>.
 
-[ [Run this code](https://godbolt.org/z/WT1z5eaKa) ]
+[ [Run this code](https://godbolt.org/z/os54jhqrj) ]
 ```c++
 #include <stdio.h>
 typedef struct { int x, y, z; } Vec3i;
@@ -235,9 +235,9 @@ static int Vec3i_cmp(const Vec3i* a, const Vec3i* b) {
     return a->z - b->z;
 }
 
-#define i_type smap_vi, Vec3i, int
+#define T smap_vi, Vec3i, int
 #define i_cmp Vec3i_cmp
-#include "stc/sortedmap.h"
+#include <stc/sortedmap.h>
 
 int main(void)
 {

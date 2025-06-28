@@ -11,33 +11,34 @@ See the c++ class [std::stack](https://en.cppreference.com/w/cpp/container/stack
 ## Header file and declaration
 
 ```c++
-#define i_type <ct>         // container type name (default: stack_{i_key})
-#define i_type <ct>, <kt>   // define both i_type and i_key types
+#define T <ct>, <kt>[,<op>] // define both T and i_key types
+#define T <ct>              // container type name (default: stack_{i_key})
 #define i_capacity <CAP>    // define an inplace stack (on the stack) with CAP capacity.
 // One of the following:
-#define i_key <t>           // key type
-#define i_keyclass <t>      // key type, and bind <t>_clone() and <t>_drop() function names
-#define i_keypro <t>        // key "pro" type, use for cstr, arc, box types
+#define i_key <kt>       // key type
+#define i_capacity <CAP> // define an inplace stack (on the stack) with CAP capacity.
+#define i_keyclass <kt>  // key type, and bind <kt>_clone() and <kt>_drop() function names
+#define i_keypro <kt>    // "pro" key type, use for `cstr`, `arc`, and `box` types.
+                         // Defines i_keyclass = <kt>, i_cmpclass = <kt>_raw
 
-#define i_keydrop <fn>      // destroy value func - defaults to empty destruct
-#define i_keyclone <fn>     // REQUIRED IF i_keydrop defined
+// Use alone or combined with i_keyclass:
+#define i_cmpclass <ct>  // comparison "class". <ct>, aka `raw` defaults to <kt>
+                         // binds <ct>_cmp(),  <ct>_eq(),  <ct>_hash() member functions.
+#define i_opt            // enable optional properties, see ...
 
-#define i_use_cmp           // enable sorting, binary_search and lower_bound
-#define i_cmp <fn>          // three-way compare two i_keyraw's
-#define i_less <fn>         // less comparison. Alternative to i_cmp
-#define i_eq <fn>           // equality comparison. Implicitly defined with i_cmp, but not i_less.
------------------------
-#define i_keyraw <t>        // conversion "raw" type - defaults to i_key
-#define i_cmpclass <t>      // conversion "raw class". binds <t>_cmp(),  <t>_eq(),  <t>_hash()
-#define i_keyfrom <fn>      // conversion func i_keyraw => i_key
-#define i_keytoraw <fn>     // conversion func i_key* => i_keyraw
+// Override or define when not "class" or "pro" is used:
+#define i_keydrop <fn>   // destroy value func - defaults to empty destruct
+#define i_keyclone <fn>  // REQUIRED IF i_keydrop defined
 
+#define i_cmp <fn>       // three-way compare two i_keyraw*
+#define i_less <fn>      // less comparison. Alternative to i_cmp
+#define i_eq <fn>        // equality comparison. Implicitly defined with i_cmp, but not i_less.
 
-#include "stc/stack.h"
+#include <stc/stack.h>
 ```
 - Defining either `i_use_cmp`, `i_less` or `i_cmp` will enable sorting, binary_search and lower_bound
 - **emplace**-functions are only available when `i_keyraw` is implicitly or explicitly defined.
-- In the following, `X` is the value of `i_key` unless `i_type` is defined.
+- In the following, `X` is the value of `i_key` unless `T` is defined.
 
 ## Methods
 
@@ -47,10 +48,10 @@ stack_X         stack_X_with_capacity(isize cap);
 stack_X         stack_X_with_size(isize size, i_key fill);
 
 stack_X         stack_X_clone(stack_X st);
-void            stack_X_copy(stack_X* self, stack_X other);
+void            stack_X_copy(stack_X* self, const stack_X* other);
 stack_X         stack_X_move(stack_X* self);                                    // move
 void            stack_X_take(stack_X* self, stack_X unowned);                   // take ownership of unowned
-void            stack_X_drop(stack_X* self);                                    // destructor
+void            stack_X_drop(const stack_X* self);                              // destructor
 
 void            stack_X_clear(stack_X* self);
 bool            stack_X_reserve(stack_X* self, isize n);
@@ -87,7 +88,7 @@ stack_X_iter    stack_X_end(const stack_X* self);
 void            stack_X_next(stack_X_iter* it);
 
 bool            stack_X_eq(const stack_X* c1, const stack_X* c2); // require i_eq/i_cmp/i_less.
-i_key           stack_X_value_clone(i_key value);
+i_key           stack_X_value_clone(const stack_X* self, i_key value);
 i_keyraw        stack_X_value_toraw(const vec_X_value* pval);
 void            stack_X_value_drop(vec_X_value* pval);
 ```
@@ -103,8 +104,8 @@ void            stack_X_value_drop(vec_X_value* pval);
 
 ## Example
 ```c++
-#define i_type IStack, int
-#include "stc/stack.h"
+#define T IStack, int
+#include <stc/stack.h>
 
 #include <stdio.h>
 

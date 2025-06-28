@@ -1,9 +1,9 @@
-#include "stc/cstr.h"
-#include "stc/cregex.h"
-#include "stc/csview.h"
+#include <stc/cstr.h>
+#include <stc/cregex.h>
+#include <stc/csview.h>
 
-#define i_type Fvec, float
-#include "stc/stack.h"
+#define T Fvec, float
+#include <stc/stack.h>
 
 int main(void)
 {
@@ -27,8 +27,8 @@ int main(void)
         printf("  %g\n", (double)*i.ref);
 
     // extracts the numbers only to a comma separated string.
-    cstr nums = cregex_replace_pro(&re, csview_from(str), " $0,",
-                                   INT32_MAX, NULL, CREG_STRIP);
+    cstr nums = cregex_replace_sv(&re, csview_from(str), " $0,",
+                                  INT32_MAX, NULL, CREG_STRIP);
     printf("\n%s\n", cstr_str(&nums));
 
     cstr_drop(&nums);

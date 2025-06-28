@@ -32,10 +32,10 @@
 #ifndef _i_prefix
   #define _i_prefix pqueue_
 #endif
-#define _i_is_pqueue
+#define _i_sorted
 #include "priv/template.h"
 #ifndef i_declared
-  _c_DEFTYPES(_c_vec_types, Self, i_key);
+  _c_DEFTYPES(_declare_stack, Self, i_key, _i_aux_def);
 #endif
 typedef i_keyraw _m_raw;
 
@@ -43,14 +43,8 @@ STC_API void        _c_MEMB(_make_heap)(Self* self);
 STC_API void        _c_MEMB(_erase_at)(Self* self, isize idx);
 STC_API _m_value*   _c_MEMB(_push)(Self* self, _m_value value);
 
-STC_INLINE Self _c_MEMB(_init)(void)
-    { return c_literal(Self){NULL}; }
-
 STC_INLINE void _c_MEMB(_put_n)(Self* self, const _m_raw* raw, isize n)
     { while (n--) _c_MEMB(_push)(self, i_keyfrom(*raw++)); }
-
-STC_INLINE Self _c_MEMB(_from_n)(const _m_raw* raw, isize n)
-    { Self cx = {0}; _c_MEMB(_put_n)(&cx, raw, n); return cx; }
 
 STC_INLINE bool _c_MEMB(_reserve)(Self* self, const isize cap) {
     if (cap != self->size && cap <= self->capacity) return true;
@@ -61,16 +55,16 @@ STC_INLINE bool _c_MEMB(_reserve)(Self* self, const isize cap) {
 STC_INLINE void _c_MEMB(_shrink_to_fit)(Self* self)
     { _c_MEMB(_reserve)(self, self->size); }
 
-STC_INLINE Self _c_MEMB(_with_capacity)(const isize cap) {
-    Self out = {NULL}; _c_MEMB(_reserve)(&out, cap);
-    return out;
-}
+#ifndef _i_aux_alloc
+STC_INLINE Self _c_MEMB(_init)(void)
+    { return c_literal(Self){0}; }
 
-STC_INLINE Self _c_MEMB(_with_size)(const isize size, _m_value null) {
-    Self out = {NULL}; _c_MEMB(_reserve)(&out, size);
-    while (out.size < size) out.data[out.size++] = null;
-    return out;
-}
+STC_INLINE Self _c_MEMB(_from_n)(const _m_raw* raw, isize n)
+    { Self cx = {0}; _c_MEMB(_put_n)(&cx, raw, n); return cx; }
+
+STC_INLINE Self _c_MEMB(_with_capacity)(const isize cap)
+    { Self cx = {0}; _c_MEMB(_reserve)(&cx, cap); return cx; }
+#endif
 
 STC_INLINE void _c_MEMB(_clear)(Self* self) {
     isize i = self->size; self->size = 0;
@@ -85,7 +79,8 @@ STC_INLINE void _c_MEMB(_drop)(const Self* cself) {
 
 STC_INLINE Self _c_MEMB(_move)(Self *self) {
     Self m = *self;
-    memset(self, 0, sizeof *self);
+    self->size = self->capacity = 0;
+    self->data = NULL;
     return m;
 }
 
@@ -115,13 +110,13 @@ STC_INLINE _m_value _c_MEMB(_pull)(Self* self)
 #if !defined i_no_clone
 STC_API Self _c_MEMB(_clone)(Self q);
 
-STC_INLINE void _c_MEMB(_copy)(Self *self, const Self other) {
-    if (self->data == other.data) return;
+STC_INLINE void _c_MEMB(_copy)(Self *self, const Self* other) {
+    if (self == other) return;
     _c_MEMB(_drop)(self);
-    *self = _c_MEMB(_clone)(other);
+    *self = _c_MEMB(_clone)(*other);
 }
-STC_INLINE _m_value _c_MEMB(_value_clone)(_m_value val)
-    { return i_keyclone(val); }
+STC_INLINE _m_value _c_MEMB(_value_clone)(const Self* self, _m_value val)
+    { (void)self; return i_keyclone(val); }
 #endif // !i_no_clone
 
 #if !defined i_no_emplace
@@ -151,12 +146,13 @@ _c_MEMB(_make_heap)(Self* self) {
 
 #if !defined i_no_clone
 STC_DEF Self _c_MEMB(_clone)(Self q) {
-    Self tmp = _c_MEMB(_with_capacity)(q.size);
-    for (; tmp.size < q.size; ++q.data)
-        tmp.data[tmp.size++] = i_keyclone((*q.data));
-    q.data = tmp.data;
-    q.capacity = tmp.capacity;
-    return q;
+    Self out = q, *self = &out; (void)self;
+    out.capacity = out.size = 0; out.data = NULL;
+    _c_MEMB(_reserve)(&out, q.size);
+    out.size = q.size;
+    for (c_range(i, q.size))
+        out.data[i] = i_keyclone(q.data[i]);
+    return out;
 }
 #endif
 
@@ -179,8 +175,8 @@ _c_MEMB(_push)(Self* self, _m_value value) {
     arr[c] = value;
     return arr + c;
 }
-
 #endif
-#undef _i_is_pqueue
+
+#undef _i_sorted
 #include "priv/linkage2.h"
 #include "priv/template2.h"

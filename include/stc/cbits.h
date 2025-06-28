@@ -140,13 +140,18 @@ STC_INLINE bool _cbits_disjoint(const uintptr_t* set, const uintptr_t* other, co
 
 #endif // STC_CBITS_H_INCLUDED
 
+#if defined T && !defined i_type
+  #define i_type T
+#endif
 #if defined i_type
   #define Self c_GETARG(1, i_type)
   #define _i_length c_GETARG(2, i_type)
 #else
   #define Self cbits
 #endif
-
+#ifndef i_allocator
+  #define i_allocator c
+#endif
 #define _i_MEMB(name) c_JOIN(Self, name)
 
 
@@ -167,8 +172,9 @@ STC_INLINE cbits* cbits_take(cbits* self, cbits other) {
 }
 
 STC_INLINE cbits cbits_clone(cbits other) {
+    cbits set = other;
     const isize bytes = _cbits_bytes(other._size);
-    cbits set = {(uintptr_t *)c_memcpy(i_malloc(bytes), other.buffer, bytes), other._size};
+    set.buffer = (uintptr_t *)c_safe_memcpy(i_malloc(bytes), other.buffer, bytes);
     return set;
 }
 
@@ -202,7 +208,7 @@ STC_INLINE void cbits_set_pattern(cbits *self, const uintptr_t pattern);
 
 STC_INLINE cbits cbits_move(cbits* self) {
     cbits tmp = *self;
-    memset(self, 0, sizeof *self);
+    self->buffer = NULL, self->_size = 0;
     return tmp;
 }
 
@@ -229,7 +235,7 @@ STC_INLINE isize    _i_MEMB(_size)(const Self* self) { (void)self; return _i_len
 STC_INLINE Self     _i_MEMB(_move)(Self* self) { return *self; }
 STC_INLINE Self*    _i_MEMB(_take)(Self* self, Self other) { *self = other; return self; }
 STC_INLINE Self     _i_MEMB(_clone)(Self other) { return other; }
-STC_INLINE void     _i_MEMB(_copy)(Self* self, const Self other) { *self = other; }
+STC_INLINE void     _i_MEMB(_copy)(Self* self, const Self* other) { *self = *other; }
 STC_INLINE void     _i_MEMB(_set_all)(Self *self, const bool value);
 STC_INLINE void     _i_MEMB(_set_pattern)(Self *self, const uintptr_t pattern);
 

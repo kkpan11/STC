@@ -1,18 +1,18 @@
 // https://www.youtube.com/watch?v=8sEe-4tig_A
 #include <stdio.h>
-#include "stc/coroutine.h"
-#define i_type IVec,int
-#include "stc/vec.h"
+#include <stc/coroutine.h>
+#define T IVec, int
+#include <stc/vec.h>
 
 struct GenValue {
     IVec *v;
     IVec_iter it;
-    cco_state cco;
+    cco_base base;
 };
 
 static long get_value(struct GenValue* g)
 {
-    cco_routine (g) {
+    cco_async (g) {
         for (cco_each(g->it, IVec, *g->v))
             cco_yield_v(*g->it.ref);
     }
@@ -23,12 +23,12 @@ struct Generator {
     struct GenValue x, y;
     bool xact, yact;
     long value;
-    cco_state cco;
+    cco_base base;
 };
 
 int interleaved(struct Generator* g)
 {
-    cco_routine (g) {
+    cco_async (g) {
         do {
             g->value = get_value(&g->x);
             g->xact = cco_active(&g->x);

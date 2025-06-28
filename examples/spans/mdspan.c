@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "stc/cspan.h"
+#include <stc/cspan.h>
 
 use_cspan(DSpan2, double, 2);
 use_cspan(DSpan3, double, 3);
@@ -33,5 +33,5 @@ int main(void) {
     printf("ms[:, :, 0]\n");
     cspan_print(DSpan2, "%g", cspan_slice(&ms, DSpan2, {c_ALL}, {c_ALL}, {0}));
 
-    free(data);
+    c_free(data, nx*ny*nz*c_sizeof *data);
 }

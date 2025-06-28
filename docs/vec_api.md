@@ -12,31 +12,30 @@ See the c++ class [std::vector](https://en.cppreference.com/w/cpp/container/vect
 ## Header file and declaration
 
 ```c++
-#define i_type <ct>,<kt>[,<op>] // shorthand for defining i_type, i_key, i_opt
-#define i_type <t>       // container type name (default: vec_{i_key})
+#define T <ct>,<kt>[,<op>] // shorthand for defining T, i_key, i_opt
+#define T <ct>           // container type name (default: vec_{i_key})
 // One of the following:
 #define i_key <t>        // key type
 #define i_keyclass <t>   // key type, and bind <t>_clone() and <t>_drop() function names
 #define i_keypro <t>     // key "pro" type, use for cstr, arc, box types
 
-#define i_keydrop <fn>   // destroy value func - defaults to empty destruct
-#define i_keyclone <fn>  // REQUIRED IF i_keydrop defined
+// Use alone or combined with i_keyclass:
+#define i_cmpclass <ct>  // Comparison "class". <ct>, aka `raw` defaults to <kt>
+                         // Bind <ct>_cmp(),  <ct>_eq(),  <ct>_hash() member functions.
 
-#define i_use_cmp        // enable sorting, binary_search and lower_bound
-#define i_cmp <fn>       // three-way compare two i_keyraw*
-#define i_less <fn>      // less comparison. Alternative to i_cmp
-#define i_eq <fn>        // equality comparison. Implicitly defined with i_cmp, but not i_less.
+// Override or define when not "class" or "pro" is used:
+#define i_keydrop <fn>   // Destroy element func - defaults to empty destruct
+#define i_keyclone <fn>  // Clone element func (required when i_keydrop is defined)
 
-#define i_keyraw <t>     // conversion "raw" type - defaults to i_key
-#define i_cmpclass <t>   // conversion "raw class". binds <t>_cmp(),  <t>_eq(),  <t>_hash()
-#define i_keyfrom <fn>   // conversion func i_keyraw => i_key
-#define i_keytoraw <fn>  // conversion func i_key* => i_keyraw
+#define i_cmp <fn>       // Three-way compare two i_keyraw*
+#define i_less <fn>      // Less comparison. Alternative to i_cmp
+#define i_eq <fn>        // Equality comparison. Implicitly defined with i_cmp, but not i_less.
 
-#include "stc/vec.h"
+#include <stc/vec.h>
 ```
 - Defining either `i_use_cmp`, `i_less` or `i_cmp` will enable sorting, binary_search and lower_bound
 - **emplace**-functions are only available when `i_keyraw` is implicitly or explicitly defined.
-- In the following, `X` is the value of `i_key` unless `i_type` is defined.
+- In the following, `X` is the value of `i_key` unless `T` is defined.
 
 ## Methods
 
@@ -46,11 +45,11 @@ vec_X           vec_X_with_size(isize size, i_key null);
 vec_X           vec_X_with_capacity(isize size);
 vec_X           vec_X_clone(vec_X vec);
 
-void            vec_X_copy(vec_X* self, vec_X other);
-vec_X_iter      vec_X_copy_n(vec_X* self, isize idx, const i_key* arr, isize n);
+void            vec_X_copy(vec_X* self, const vec_X* other);
+vec_X_iter      vec_X_copy_to(vec_X* self, isize idx, const i_key* arr, isize n);
 vec_X           vec_X_move(vec_X* self);                                    // move
 void            vec_X_take(vec_X* self, vec_X unowned);                     // take ownership of unowned
-void            vec_X_drop(vec_X* self);                                    // destructor
+void            vec_X_drop(const vec_X* self);                              // destructor
 
 void            vec_X_clear(vec_X* self);
 bool            vec_X_reserve(vec_X* self, isize cap);
@@ -104,7 +103,7 @@ void            vec_X_next(vec_X_iter* iter);
 vec_X_iter      vec_X_advance(vec_X_iter it, size_t n);
 
 bool            vec_X_eq(const vec_X* c1, const vec_X* c2); // equality comp.
-vec_X_value     vec_X_value_clone(vec_X_value val);
+vec_X_value     vec_X_value_clone(const vec_X* self, vec_X_value val);
 vec_X_raw       vec_X_value_toraw(const vec_X_value* pval);
 vec_X_raw       vec_X_value_drop(vec_X_value* pval);
 ```
@@ -120,13 +119,13 @@ vec_X_raw       vec_X_value_drop(vec_X_value* pval);
 
 ## Examples
 
-[ [Run this code](https://godbolt.org/z/rnacsb8x8) ]
+[ [Run this code](https://godbolt.org/z/P84zMWro8) ]
 ```c++
 #include <stdio.h>
 
 // enable sorting/searching using default <, == operators
-#define i_type vec_int, int, (c_use_cmp)
-#include "stc/vec.h"
+#define T vec_int, int, (c_use_cmp)
+#include <stc/vec.h>
 
 int main(void)
 {
@@ -161,10 +160,10 @@ int main(void)
 [ [Run this code](https://godbolt.org/z/c7e3q5v14) ]
 ```c++
 #include <stdio.h>
-#include "stc/cstr.h"
+#include <stc/cstr.h>
 
 #define i_keypro cstr
-#include "stc/vec.h"
+#include <stc/vec.h>
 
 int main(void) {
     vec_cstr names = {0};
@@ -189,10 +188,10 @@ int main(void) {
 ### Example 3
 Container with elements of structs:
 
-[ [Run this code](https://godbolt.org/z/jKrz67hYW) ]
+[ [Run this code](https://godbolt.org/z/bWEb5vc4K) ]
 ```c++
 #include <stdio.h>
-#include "stc/cstr.h"
+#include <stc/cstr.h>
 
 typedef struct {
     cstr name; // dynamic string
@@ -219,8 +218,8 @@ void User_drop(User* self) {
 //             i_cmp function or by specifying c_use_cmp. In this case i_cmp is indirectly
 //             bound to User_cmp because c_keyclass was specified, otherwise it is assumed that
 //             i_key is a built-in type that works with < and == operators).
-#define i_type Users, User, (c_keyclass | c_use_cmp)
-#include "stc/vec.h"
+#define T Users, User, (c_keyclass | c_use_cmp)
+#include <stc/vec.h>
 
 int main(void) {
     Users users = {0};

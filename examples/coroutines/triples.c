@@ -1,7 +1,7 @@
 // https://quuxplusone.github.io/blog/2019/03/06/pythagorean-triples/
 
 #include <stdio.h>
-#include "stc/coroutine.h"
+#include <stc/coroutine.h>
 
 void triples_vanilla(int max_c) {
     for (int c = 5, i = 0;; ++c) {
@@ -21,11 +21,11 @@ void triples_vanilla(int max_c) {
 struct triples {
     int max_c;
     int a, b, c;
-    cco_state cco;
+    cco_base base;
 };
 
 int triples_coro(struct triples* t) {
-    cco_routine (t) {
+    cco_async (t) {
         for (t->c = 5;; ++t->c) {
             for (t->a = 1; t->a < t->c; ++t->a) {
                 for (t->b = t->a + 1; t->b < t->c; ++t->b) {
@@ -40,9 +40,9 @@ int triples_coro(struct triples* t) {
                 }
             }
         }
-        cco_finally:
-        puts("done");
     }
+
+    puts("done");
     return 0;
 }
 

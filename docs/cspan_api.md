@@ -18,7 +18,7 @@ See also C++
 This is different from other containers where template parameters are defined prior to
 including each container. This works well mainly because cspan is a non-owning type.
 ```c++
-#include "stc/cspan.h"
+#include <stc/cspan.h>
 use_cspan(SpanType, ValueType);                      // Define a 1-d span with ValueType elements.
 use_cspan(SpanTypeN, ValueType, RANK);               // Define multi-dimensional span with RANK.
                                                        // RANK is the number (constant) of dimensions
@@ -104,7 +104,7 @@ OutSpanM        cspan_slice(const SpanTypeN* self, <OutSpanM>, {x0,x1,xs}, {y0,y
                 //  brackets : optional brackets and comma. Example "{},". Default "[]".
                 //  field    : optional args macro function, must match fmt args.
                 //             e.g.: #define complexfield(x) creal(x), cimag(x)
-                // Examples: cspan_print(Span2, "%.3f", Span2_transpose(sp2)));
+                // Examples: cspan_print(Span2, "%.3f", Span2_transposed(sp2)));
                 //           cspan_print(Span2, "%.3f", (Span2)cspan_submd3(&sp3, 1));
 void            cspan_print(<SpanTypeN>, const char* fmt, SpanTypeN span, FILE* fp = stdout,
                             const char* brackets = "[]", field(x) = x);
@@ -139,11 +139,11 @@ void            SpanTypeN_next(SpanTypeN_iter* it);
 ```c++
 #include <stdio.h>
 #define i_key int
-#include "stc/vec.h"
+#include <stc/vec.h>
 
 #define i_key int
-#include "stc/stack.h"
-#include "stc/cspan.h"
+#include <stc/stack.h>
+#include <stc/cspan.h>
 use_cspan(intspan, int);
 
 void printMe(intspan container) {
@@ -231,10 +231,10 @@ b flat:
 ```
 Multi-dimension slicing (STC cspan):
 
-[ [Run this code](https://godbolt.org/z/fr4crj833) ]
+[ [Run this code](https://godbolt.org/z/cEPbsja98) ]
 ```c++
 #include <stdio.h>
-#include "stc/cspan.h"
+#include <stc/cspan.h>
 use_cspan3(myspan, int); // define myspan, myspan2, myspan3.
 
 int main(void) {
@@ -244,7 +244,7 @@ int main(void) {
     myspan3 ss3 = cspan_slice(&ms3, myspan3, {c_ALL}, {0,3}, {2,c_END});
     puts("ss3:");
     myspan2 a = cspan_submd3(&ss3, 1);
-    myspan2 b = myspan2_transpose(a);
+    myspan2 b = myspan2_transposed(a);
 
     cspan_print(myspan3, "%d", ss3);
     puts("\nms3[1]:");
@@ -273,7 +273,7 @@ Slicing cspan without and with reducing the rank:
 [ [Run this code](https://godbolt.org/z/PTh8ojenc) ]
 ```c++
 #include <stdio.h>
-#include "stc/cspan.h"
+#include <stc/cspan.h>
 
 use_cspan3(Span, int); // Shorthand to define Span, Span2, and Span3
 

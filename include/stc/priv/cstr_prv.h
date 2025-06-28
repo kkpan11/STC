@@ -27,6 +27,7 @@
 #include <stdio.h> /* FILE*, vsnprintf */
 #include <stdlib.h> /* malloc */
 #include <stddef.h> /* size_t */
+#include <stdarg.h> /* cstr_vfmt() */
 /**************************** PRIVATE API **********************************/
 
 #if defined __GNUC__ && !defined __clang__
@@ -35,26 +36,25 @@
   #pragma GCC diagnostic ignored "-Warray-bounds"
 #endif
 
-enum  { cstr_s_last = sizeof(cstr_buf) - 1,
-        cstr_s_cap = cstr_s_last - 1 };
-#define cstr_s_size(s)          ((isize)(s)->sml.data[cstr_s_last])
-#define cstr_s_set_size(s, len) ((s)->sml.data[len] = 0, (s)->sml.data[cstr_s_last] = (char)(len))
+enum  { cstr_s_cap = sizeof(cstr_buf) - 2 };
+#define cstr_s_size(s)          ((isize)(s)->sml.size)
+#define cstr_s_set_size(s, len) ((s)->sml.data[(s)->sml.size = (uint8_t)(len)] = 0)
 #define cstr_s_data(s)          (s)->sml.data
 
 #if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
     #define byte_rotl_(x, b)       ((x) << (b)*8 | (x) >> (sizeof(x) - (b))*8)
     #define cstr_l_cap(s)          (isize)(~byte_rotl_((s)->lon.ncap, sizeof((s)->lon.ncap) - 1))
-    #define cstr_l_set_cap(s, cap) ((s)->lon.ncap = ~byte_rotl_((size_t)(cap), 1))
+    #define cstr_l_set_cap(s, cap) ((s)->lon.ncap = ~byte_rotl_((uintptr_t)(cap), 1))
 #else
     #define cstr_l_cap(s)          (isize)(~(s)->lon.ncap)
-    #define cstr_l_set_cap(s, cap) ((s)->lon.ncap = ~(size_t)(cap))
+    #define cstr_l_set_cap(s, cap) ((s)->lon.ncap = ~(uintptr_t)(cap))
 #endif
 #define cstr_l_size(s)          (isize)((s)->lon.size)
-#define cstr_l_set_size(s, len) ((s)->lon.data[(s)->lon.size = (size_t)(len)] = 0)
+#define cstr_l_set_size(s, len) ((s)->lon.data[(s)->lon.size = (uintptr_t)(len)] = 0)
 #define cstr_l_data(s)          (s)->lon.data
-#define cstr_l_drop(s)          i_free((s)->lon.data, cstr_l_cap(s) + 1)
+#define cstr_l_drop(s)          c_free((s)->lon.data, cstr_l_cap(s) + 1)
 
-#define cstr_is_long(s)         (((s)->sml.data[cstr_s_last] & 128) != 0)
+#define cstr_is_long(s)         ((s)->sml.size >= 128)
 extern  char* _cstr_init(cstr* self, isize len, isize cap);
 extern  char* _cstr_internal_move(cstr* self, isize pos1, isize pos2);
 
@@ -64,22 +64,24 @@ extern  char* _cstr_internal_move(cstr* self, isize pos1, isize pos2);
 #define             cstr_lit(literal) cstr_from_n(literal, c_litstrlen(literal))
 
 extern  cstr        cstr_from_replace(csview sv, csview search, csview repl, int32_t count);
-extern  cstr        cstr_from_fmt(const char* fmt, ...);
+extern  cstr        cstr_from_fmt(const char* fmt, ...) c_GNUATTR(format(printf, 1, 2));
 
+extern  void        cstr_drop(const cstr* self);
+extern  cstr*       cstr_take(cstr* self, const cstr s);
 extern  char*       cstr_reserve(cstr* self, isize cap);
 extern  void        cstr_shrink_to_fit(cstr* self);
 extern  char*       cstr_resize(cstr* self, isize size, char value);
 extern  isize       cstr_find_at(const cstr* self, isize pos, const char* search);
 extern  isize       cstr_find_sv(const cstr* self, csview search);
 extern  char*       cstr_assign_n(cstr* self, const char* str, isize len);
-STC_INLINE char*    cstr_append(cstr* self, const char* str);
-STC_INLINE char*    cstr_append_s(cstr* self, cstr s);
 extern  char*       cstr_append_n(cstr* self, const char* str, isize len);
-extern  isize       cstr_append_fmt(cstr* self, const char* fmt, ...);
+extern  isize       cstr_append_fmt(cstr* self, const char* fmt, ...) c_GNUATTR(format(printf, 2, 3));
 extern  char*       cstr_append_uninit(cstr *self, isize len);
+
 extern  bool        cstr_getdelim(cstr *self, int delim, FILE *fp);
 extern  void        cstr_erase(cstr* self, isize pos, isize len);
-extern  isize       cstr_printf(cstr* self, const char* fmt, ...);
+extern  isize       cstr_printf(cstr* self, const char* fmt, ...) c_GNUATTR(format(printf, 2, 3));
+extern  isize       cstr_vfmt(cstr* self, isize start, const char* fmt, va_list args);
 extern  size_t      cstr_hash(const cstr *self);
 extern  bool        cstr_u8_valid(const cstr* self);
 extern  void        cstr_u8_erase(cstr* self, isize u8pos, isize u8len);
@@ -124,13 +126,6 @@ STC_INLINE cstr cstr_with_capacity(const isize cap) {
     return s;
 }
 
-STC_INLINE cstr* cstr_take(cstr* self, const cstr s) {
-    if (cstr_is_long(self) && self->lon.data != s.lon.data)
-        cstr_l_drop(self);
-    *self = s;
-    return self;
-}
-
 STC_INLINE cstr cstr_move(cstr* self) {
     cstr tmp = *self;
     *self = cstr_init();
@@ -140,11 +135,6 @@ STC_INLINE cstr cstr_move(cstr* self) {
 STC_INLINE cstr cstr_clone(cstr s) {
     csview sv = cstr_sv(&s);
     return cstr_from_n(sv.buf, sv.size);
-}
-
-STC_INLINE void cstr_drop(cstr* self) {
-    if (cstr_is_long(self))
-        cstr_l_drop(self);
 }
 
 #define SSO_CALL(s, call) (cstr_is_long(s) ? cstr_l_##call : cstr_s_##call)
@@ -171,7 +161,7 @@ STC_INLINE bool cstr_is_empty(const cstr* self)
     { return cstr_size(self) == 0; }
 
 STC_INLINE isize cstr_capacity(const cstr* self)
-    { return cstr_is_long(self) ? cstr_l_cap(self) : (isize)cstr_s_cap; }
+    { return cstr_is_long(self) ? cstr_l_cap(self) : cstr_s_cap; }
 
 STC_INLINE isize cstr_to_index(const cstr* self, cstr_iter it)
     { return it.ref - cstr_str(self); }
@@ -273,13 +263,13 @@ STC_INLINE void cstr_uppercase(cstr* self)
 STC_INLINE bool cstr_istarts_with(const cstr* self, const char* sub) {
     csview sv = cstr_sv(self);
     isize len = c_strlen(sub);
-    return len <= sv.size && !utf8_icompare(sv, c_sv(sub, len));
+    return len <= sv.size && !utf8_icompare((sv.size = len, sv), c_sv(sub, len));
 }
 
 STC_INLINE bool cstr_iends_with(const cstr* self, const char* sub) {
     csview sv = cstr_sv(self);
-    isize n = c_strlen(sub);
-    return n <= sv.size && !utf8_icmp(sv.buf + sv.size - n, sub);
+    isize len = c_strlen(sub);
+    return len <= sv.size && !utf8_icmp(sv.buf + sv.size - len, sub);
 }
 
 STC_INLINE int cstr_icmp(const cstr* s1, const cstr* s2)

@@ -3,22 +3,23 @@
 
 # STC - Smart Template Containers
 
-## Version 5.1 RC3
-STC is a comprehensive, high performance, typesafe and generic general purpose container and algorithms
-library for C99. It has excellent ergonomics and ease of use. The library elevates C into a modern programming
-language featuring a number of common containers and algorithms found in other contemporary system languages
-like Zig, Rust, and C++. Containers are templated and therefore allows for typesafe, high performance implementations.
-
-With STC version 5.1, specifying a container with non-trivial element types can now be done with a single #define prior to the inclusion
-of the container.
+## Version 5.1 RC5
+STC is a mature, comprehensive, general purpose container and algorithm library for C99/C11.
+It has excellent ergonomics and requires virtually no boilerplate code. The library adds many
+missing features to C, like common data containers, algorithms, and abstractions found in
+contemporary system languages like Zig, Rust, and C++. Containers and algorithms are templated
+or generic, which allows for a fully typesafe, compact, and high performance implementation.
 
 <details>
 <summary><b>Version 5 NEWS</b></summary>
 
 V5.1:
-- Possible to specify even complex container types as one-liners using `c_keyclass`, `c_keypro`, and `c_cmpclass` option flags.
-- Some breaking changes in cspan API.
+- Specifying containers with non-trivial element types can now be done with a single `#define`
+prior to including the container (using `c_keyclass`, `c_keypro`, and `c_cmpclass` option *traits*).
+- Users may now define `T` as a shorthand for `i_type`.
+- Replaced **arc** with a new implementation which take up only one pointer. Previous arc is now available as a traits option (c_arc2). The new **arc** may not be constructed from an object pointer, for that use **arc2**.
 - Updated and fixed bugs in **cregex** to handle invalid utf8 strings.
+- Some breaking changes in cspan API.
 - Several other smaller improvements and bug fixes.
 
 V5.0.2:
@@ -26,13 +27,13 @@ V5.0.2:
 
 V5.0:
 - Added build system/CI with Meson. Makefile provided as well.
-- Added support for extending templated containers by `#define i_aux { ... }`.
+- Added support for extending templated containers by `#define i_aux <TYPE>`.
 - Changed ranged for-loop macros to use more natural C-syntax (v5.0.2)
 - Added **sum type** (tagged union), included via `algorithm.h`
 - Added single/multi-dimensional generic **span** type, with numpy-like slicing.
 - Updated coroutines support with *structured concurrency* and *symmetric coroutines*.
 - Updated coroutines support with proper *error handling* and *error recovery*.
-- Template parameter `i_type` lets you define container type plus `i_key` and `i_val` (or `i_opt`) all in one line.
+- Template parameter `T` lets you define container type plus `i_key` and `i_val` (or `i_opt`) all in one line.
 - Template parameters `i_keyclass` and `i_valclass` to specify types with `_drop()` and `_clone()` functions defined.
 - Template parameters `i_keypro` and `i_valpro` to specify `cstr`, `box` and `arc` types (users may also define pro-types).
 - **hmap** now uses *Robin Hood hashing* (very fast on clang compiler).
@@ -71,7 +72,7 @@ safety concerns.
 
 Containers
 ----------
-- [***arc*** - (atomic) reference counted shared pointer`](docs/arc_api.md)
+- [***arc*** - (atomic) reference counted; shared pointer](docs/arc_api.md)
 - [***box*** - heap allocated unique pointer`](docs/box_api.md)
 - [***cbits*** - dynamic bitset](docs/cbits_api.md)
 - [***list*** - forward linked list](docs/list_api.md)
@@ -148,8 +149,8 @@ used container type instances (more than 2-3 TUs), consider creating a separate 
 #ifndef INTVEC_H_
 #define INTVEC_H_
 #define i_header // header definitions only
-#define i_type intvec, int
-#include "stc/vec.h"
+#define T intvec, int
+#include <stc/vec.h>
 #endif
 ```
 So anyone may use the shared vec-type. Implement the shared functions in one C file (if several containers are shared,
@@ -173,8 +174,8 @@ like **cstr** and **cbits** are generic/templated. No type casting is used, so c
 templated types in C++. To specify template parameters with STC, you define them as macros prior to
 including the container, e.g.
 ```c++
-#define i_type Floats, float // Container type (name, element type)
-#include "stc/vec.h"         // "instantiate" the desired container type
+#define T Floats, float  // Container type (name, element type)
+#include <stc/vec.h>     // "instantiate" the desired container type
 #include <stdio.h>
 
 int main(void)
@@ -195,10 +196,10 @@ int main(void)
 ```
 Switching to a different container type, e.g. a sorted set (sset):
 <!-- https://raw.githubusercontent.com/stclib/stcsingle/main/ -->
-[ [Run this code](https://godbolt.org/z/6KhzdMafd) ]
+[ [Run this code](https://godbolt.org/z/1PKqWo4z6) ]
 ```c++
-#define i_type Floats, float
-#include "stc/sortedset.h" // Use a sorted set instead
+#define T Floats, float
+#include <stc/sortedset.h> // Use a sorted set instead
 #include <stdio.h>
 
 int main(void)
@@ -226,23 +227,25 @@ If an element destructor `i_keydrop` is defined, `i_keyclone` function is requir
 
 Let's make a vector of vectors, which can be cloned. All of its element vectors will be destroyed when destroying the Vec2D.
 
-[ [Run this code](https://godbolt.org/z/dqfr41Mcc) ]
+[ [Run this code](https://godbolt.org/z/PncareMEn) ]
 ```c++
 #include <stdio.h>
-#include "stc/algorithm.h"
+#include <stc/algorithm.h>
 
-#define i_type Vec, float
+#define T Vec, float
 #define i_use_cmp        // enable default ==, < and hash operations
-#include "stc/vec.h"
+#include <stc/vec.h>
 
-#define i_type Vec2D
+#define T Vec2D
 #define i_keyclass Vec   // Use i_keyclass when key type has "members" _clone() and _drop().
 #define i_use_eq         // vec does not have _cmp(), but it has _eq()
-#include "stc/vec.h"
+#include <stc/vec.h>
 
-// The above may be written as a one-liner (note the c_-prefix instead of i_):
-//#define i_type Vec2D, Vec, (c_keyclass | c_use_eq)
-//#include "stc/vec.h"
+// The above may be written as a one-liners (note the c_-prefix instead of i_):
+// #define T Vec, float, (c_use_cmp)
+// #include <stc/vec.h>
+// #define T Vec2D, Vec, (c_keyclass | c_use_eq)
+// #include <stc/vec.h>
 
 int main(void)
 {
@@ -273,26 +276,26 @@ int main(void)
 ```
 This example uses four different container types:
 
-[ [Run this code](https://godbolt.org/z/Mr8rYqjdf) ]
+[ [Run this code](https://godbolt.org/z/fdavvGoE8) ]
 <!--{%raw%}-->
 ```c++
 #include <stdio.h>
 
-#define i_type hset_int, int
-#include "stc/hashset.h"   // unordered/hash set (assume i_key is basic type, uses `==` operator)
+#define T hset_int, int
+#include <stc/hashset.h>   // unordered/hash set (assume i_key is basic type, uses `==` operator)
 
 struct Point { float x, y; };
 // Define cvec_pnt and enable linear search by defining i_eq
-#define i_type vec_pnt, struct Point
+#define T vec_pnt, struct Point
 #define i_eq(a, b) (a->x == b->x && a->y == b->y)
-#include "stc/vec.h"    // vector of struct Point
+#include <stc/vec.h>    // vector of struct Point
 
 // enable sort/search. Use native `<` and `==` operators
-#define i_type list_int, int, (c_use_cmp)
-#include "stc/list.h"   // singly linked list
+#define T list_int, int, (c_use_cmp)
+#include <stc/list.h>   // singly linked list
 
-#define i_type smap_int, int, int
-#include "stc/sortedmap.h"  // sorted map int => int
+#define T smap_int, int, int
+#include <stc/sortedmap.h>  // sorted map int => int
 
 int main(void)
 {
@@ -382,7 +385,7 @@ Benchmark notes:
 
 1. ***Centralized analysis of template parameters***. The analyser assigns values to all
 non-specified template parameters using meta-programming. You may specify a set of "standard"
-template parameters for each container, but as a minimum *only one is required*: `i_type` or
+template parameters for each container, but as a minimum *only one is required*: `T` or
 `i_key` (+ `i_val` for maps). In this case, STC assumes that the elements are of basic types.
 For non-trivial types, additional template parameters must be given.
 2. ***Alternative lookup and insert type***. Specify an alternative type to use for
@@ -394,8 +397,8 @@ as an alternative to `vec_cstr_push(&vec, cstr_from("Hello"))`.
 3. ***Standardized container iterators***. All containers can be iterated in the same manner, and all use the
 same element access syntax. The following works for single-element type containers, e.g a linked list:
 ```c++
-#define i_type MyInts, int
-#include "stc/list.h"
+#define T MyInts, int
+#include <stc/list.h>
 ...
 MyInts ints = c_make(MyInts, {3, 5, 9, 7, 2});
 for (c_each(it, MyInts, ints)) *it.ref += 42;
@@ -409,7 +412,7 @@ for (c_each(it, MyInts, ints)) *it.ref += 42;
 - Naming conventions
     - Non-templated container names are prefixed by `c`, e.g. `cstr`, `cbits`, `cregex`.
     - Public STC macros and "keywords" are prefixed by `c_`, e.g. `c_each`, `c_make`.
-    - Template parameter macros are prefixed by `i_`, e.g. `i_key`, `i_type`.
+    - Template parameter macros are prefixed by `i_`, e.g. `i_key`, `T`.
     - All owning containers can be initialized with `{0}` (also `cstr`), i.e. no heap allocation initially.
 
 - Common types defined for any container type Cnt:
@@ -425,7 +428,7 @@ for (c_each(it, MyInts, ints)) *it.ref += 42;
     - Cnt_reserve(Cnt*, isize capacity)
     - Cnt_move(Cnt*) -> Cnt
     - Cnt_take(Cnt*, Cnt unowned)
-    - Cnt_copy(Cnt*, Cnt other)
+    - Cnt_copy(Cnt*, const Cnt* other)
     - Cnt_clone(Cnt other) -> Cnt
     - Cnt_drop(Cnt*)
     - Cnt_value_drop(Cnt_value*)
@@ -451,55 +454,150 @@ for (c_each(it, MyInts, ints)) *it.ref += 42;
 
 ## Defining template parameters
 
-The container template parameters are specified with a `#define i_xxxx` statement. Only `i_key` is
-strictly required. Each templated type instantiation requires an `#include` statement, even if the
-same container base type was included earlier. Possible template parameters are:
+The container template parameters are specified with a `#define i_xxxx` statement. Each templated
+type instantiation requires an `#include` statement, even if the same container base type was
+included earlier. Normally it is sufficient to only define `T` before including a container:
 
-### Basic template parameters
-- `i_type` *CntType* - Custom container type name.
-- `i_type` *CntType*, *KeyType*[, *ValType*] is a shorthand for defining ***i_type***, ***i_key*** (and ***i_val***) individually, as described below. ***NB!*** Do not use "pro"-types as KeyType/ValType, i.e. **cstr**, **arc** and **box** types.
+```c
+#define T ContainerType, KeyType[, ValType][, (Options)]
+```
+
+Examples of container definitions:
+
+A sortedmap of **int** => **float**:
+```c++
+#define T IntfMap, int, float
+#include <stc/sortedmap.h>
+```
+
+A hashmap of **int** => string
+```c++
+#define T StrMap, int, cstr, (c_valpro) // cstr is a "pro" type
+#include <stc/hashmap.h>
+```
+
+A vector of searchable string vectors:
+```c++
+#define T StrVec, cstr, (c_keypro | c_use_eq) // enable vector linear search (find).
+#include <stc/vec.h>
+#define T StrVecVec, StrVec, (c_keyclass) // container as element has "class" properties
+#include <stc/vec.h>
+```
+The **c_keypro** and **c_keyclass** are *options*, and is specified as the last comma-separated argument
+of the `T` template parameter. They associate the (key) element type name with a set of standard
+named "member" functions and assigns them to template parameters. These are then used during the
+implementation of the container. NB! Note that the associated/bound "member" functions are only
+required to be implemented if the container actually use them. Option flags are boolean properties,
+and may be combined with the `|` operator. Below is a complete list of *options* that may be
+specified for a container:
+
+  - **c_cmpclass** - `i_key` binds _cmp(), _eq() and _hash() member names.
+  - **c_keyclass** - `i_key` binds _clone(), _drop(), _cmp(), _eq(), and _hash()  member names.
+  - **c_valclass** -  `i_val` binds _clone() and _drop() member names for sortedmaps / hashmaps.
+  - **c_keypro** - `i_key` is a "keyclass" with an associated "cmpclass"-type named KeyType_raw (see below).
+  - **c_valpro** - `i_val` is a "valclass" with an associated "raw"-type named ValType_raw.
+  - **c_use_cmp** - enable `<` comparison on integral types, or the _cmp() member on "pro/class" elements.
+  - **c_use_eq** - enable `==` on integral types, or the _eq() member on "pro/class" elements.
+  - **c_no_clone** - disable clone functionality in container
+  - **c_no_atomic** - used with **arc** type, do simple reference counting instead of atomic.
+  - **c_no_hash** - don't enable hash function when "cmpclass" is specified.
+  - **c_declared** - container type was predeclared
+
+Bound element "member" functions when **c_keyclass** / **c_valclass** / **c_cmpclass** are specified:
+```c++
+int      KeyType_cmp(const KeyType* x, const KeyType* y);
+bool     KeyType_less(const KeyType* x, const KeyType* y);
+bool     KeyType_eq(const KeyType* x, const KeyType* y);
+size_t   KeyType_hash(const KeyType* kp);
+KeyType  KeyType_clone(KeyType k);
+void     KeyType_drop(KeyType* kp);
+
+ValType  ValType_clone(ValType v);
+void     ValType_drop(ValType* vp);
+```
+
+**Notes**:
+- **c_use_cmp** is only needed for **vec**, **stack**, **deque**, **list**, as sorting
+and linear seach are not enabled by default for them. Maps/sets/priority queues enables
+these by default.
+- Comparison uses `<` and `==` operators by default whereas when **class/pro** are specified, it
+uses the _cmp() member function by default. However, the _cmp() member is also used for
+equality comparison, so **c_use_eq** has to be specified in order to use the _eq() member!
+- For plain structs (PODs), define `i_cmp` / `i_eq` / `i_hash` macros when needed, or make it
+into a "class" by defining required "member" functions, and use the class-options described.
+
+#### The **c_keypro** and **c_valpro** options (properties)
+The **c_cmpclass**'s type is equal to the `i_key` type. However, it is posible to
+- `i_cmpclass` *RawType*
+
+#### Key type template parameters (advanced usage)
+The assosicated element "member" functions defined from using meta-template parameters may also be
+specified/overridden by defining specific template parameters before including the container.
+Only `i_key` is strictly required to be defined for simple non-maps:
+
 - `i_key` *KeyType* - Element type.
-- `i_val` *MappedType* - Element type. **[required]** for **hmap** and **smap** containers.
-- `i_cmp` *Func* - Three-way comparison of two *i_keyraw* elements, given as pointers.
-- `i_less` *Func* - Comparison of two *i_keyraw* elements - alternative to specifying *i_cmp*.
-- `i_eq` *Func* - Equality comparison of two *i_keyraw* - defaults to *!i_cmp(x,y)*. Companion with *i_hash*.
-- `i_hash` *Func* - Hash function taking a *i_keyraw* pointer - defaults to *c_default_hash*.
-**[required]** for **hmap** and **hset** unless *i_keyraw* is an integral type (or a struct with no padding space).
-
-#### Key (element lookup type):
-- `i_keydrop` *Func* - Destroy key - defaults to empty destructor.
+- `i_keyclass` *KeyType* - Meta template parameter
+- `i_cmpclass` *KeyRaw* - Meta template parameter (defaults to *KeyType*)
+    - `i_keyfrom` *Func* - Conversion from *KeyRaw* to *KeyType*.
+    - `i_keytoraw` *Func* - Conversion from *KeyType* to *KeyRaw*.
+- `i_cmp` *Func* - Three-way comparison of two *KeyRaw* elements, given as pointers.
+- `i_less` *Func* - Comparison of two *KeyRaw* elements. Alternative to specifying *i_cmp*.
+- `i_eq` *Func* - Equality comparison of two *KeyRaw*. Defaults to *!i_cmp(x,y)*.
+- `i_hash` *Func* - Hash function taking a *KeyRaw* pointer. Companion with *i_eq*.
+ **[required]** for **hmap** and **hset** unless *KeyRaw* is an integral type (or a struct with no padding space).
 - `i_keyclone` *Func* - **[required if]** *i_keydrop* is defined (exception for **arc**, as it shares).
-- Advanced, conversion between an alternative input type:
-    - `i_keyraw` *RawType* - Lookup/comparison "raw" type. Defaults to *i_key*.
-    - `i_keyfrom` *Func* - Conversion func from a *i_keyraw* to return a *i_key* type.
-    - `i_keytoraw` *Func*  - Conversion func from a *i_key* pointer to a *i_keyraw* type. **[required]** if *i_keyraw* was defined. By default, it returns the dereferenced *i_key* value.
+- `i_keydrop` *Func* - Destroy key - defaults to empty destructor.
 
-#### Val (mapped value type for maps):
-- These are analogues to the Key parameters, i.e. `i_valdrop`, `i_valclone`, `i_valraw`, etc.
+Bound key-element member functions when `i_keyclass` and/or `i_cmpclass` parameters are specified:
+```c++
+int      KeyType_cmp(const KeyRaw* rx, const KeyRaw* ry);
+bool     KeyType_less(const KeyRaw* rx, const KeyRaw* ry);
+bool     KeyType_eq(const KeyRaw* rx, const KeyRaw* ry);
+size_t   KeyType_hash(const KeyRaw* rp);
+KeyType  KeyType_from(KeyRaw r);
+KeyRaw   KeyType_toraw(const KeyType* kp);
+KeyType  KeyType_clone(KeyType k);
+void     KeyType_drop(KeyType* kp);
+```
+
+#### Val type template parameters (mapped value type for maps)
+- `i_val` *ValType* - **[required]** for **hmap** and **smap** containers.
+- `i_valraw` *ValRaw* - Alternative input type (converted to/from *ValType*). Defaults to *ValType*
+    - `i_valfrom` *Func* - Conversion from *ValRaw* to *ValType*.
+    - `i_valtoraw` *Func* - Conversion from *ValType* to *ValRaw*.
+- `i_valclone` *Func* - **[required if]** *i_valdrop* is defined (exception for **arc**, as it shares).
+- `i_valdrop` *Func* - Destroy mapped val - defaults to empty destructor.
+
+Bound mapped-element member functions when `i_valraw` / `i_val` is specified:
+```c++
+ValType  ValType_from(ValRaw r);
+ValRaw   ValType_toraw(const ValType* vp);
+ValType  ValType_clone(ValType v);
+void     ValType_drop(ValType* vp);
+```
 
 ---
 
-### Meta template parameters (advanced)
-Note that all the following logic is resolved at compile time, so there is no associated runtime overhead.
-The following meta-template parameters can be specified instead of ***i_key***, ***i_val***, and ***i_keyraw***, etc.
-These parameters make types into "classes" in the sense that they textually bind associated function names to the basic
-template parameters described above. This reduces boiler-plate code and simplifies the management
-of non-trivial container element types. Many basic template parameters are defined when specifying the
-following parameters, but the user may override those when needed. E.g. ***i_cmp*** can be overridden by defining
-it directly like `#define i_cmp(x, y) strcmp(x->name, y->name)`.
+### Meta template parameters (advanced / internal)
+Normally it is simplest to specify the meta-template parameters via the *option* argument to `T`,
+however, they can be specified as separate template parameters as well. Specifically, `i_cmpclass`
+can be specified as a different type than `i_key` (**c_cmpclass** always makes it equal to `i_key`).
+This enables a container to be associated with an additional alternative "raw" input key/val-type,
+and one may specify convertion functions between them. Specifically the string, **cstr** and smart
+pointers, **box** and **arc** uses this to enhance ergonmics, but every containers may gain efficiency
+and usage enhancements from this general built-in mechanism.
 
-#### Key meta parameters:
 - `i_cmpclass` *RawType* - Defines ***i_keyraw*** and binds ***i_cmp***, ***i_eq***, and ***i_hash*** to
 *RawType_cmp()*, *RawType_eq()*, and *RawType_hash()* comparison functions/macro names. In addition
 ***i_keyfrom***, ***i_keytoraw*** are bound to conversion functions *KeyType_from(RawType\*)* and *KeyType_toraw()*.
     - If neither ***i_key*** nor ***i_keyclass*** are defined, ***i_key*** will be defined as *RawType*. In this case,
     ***i_keyfrom***, ***i_keytoraw*** are bound to default pass-through conversion macros.
-    - Useful alone for containers of views (like csview).
+    - Useful alone for containers of views (like csview) - may use **c_cmpclass** option in that case.
 - `i_keyclass` *KeyType*
     - Defines ***i_key*** and binds ***i_keyclone***, ***i_keydrop*** to *KeyType_clone()* and *KeyType_drop()*
     function/macro names.
-    - Unless `i_cmpclass`/`i_keyraw` are also specified, the comparison functions mentioned with ***i_cmpclass*** are
-    also expected to exist (for containers that requires them or when **i_use_cmp** is specified).
+    - Unless `i_cmpclass` or `i_keyraw` are also specified, comparison functions associated with ***i_cmpclass*** are
+    also bound.
     - Use with container of containers, or in general when the element type has *_clone()* and *_drop()*
     "member" functions.
 - `i_keypro` *KeyType* - Use with "pro"-element types, i.e. library types like **cstr**, **box** and **arc**.
@@ -510,35 +608,20 @@ It combines the ***i_keyclass*** and ***i_cmpclass*** properties. Defining ***i_
     will all be textually bound to function names. See the vikings.c example on how to create and instantiate
     a self-made pro-type.
 
-#### Val (mapped) meta parameters:
+#### Val meta parameters
 - `i_valclass` *MappedType* - Analogous to the ***i_keyclass***, except for comparison and hash funcs.
-- `i_valpro` *MappedType* - Comparison functions are not relevant for the mapped type, so this defines
+- `i_valpro` *MappedType* - Comparison/lookup functions are not relevant for the mapped type, so this defines
     - ***i_valraw*** *MappedType_raw* (used by *emplace* and *c_make* functions only)
     - ***i_valclass*** *MappedType*
     - I.e. `i_val`, `i_valclone`, `i_valdrop`, `i_valraw`, `i_valfrom`, `i_valtoraw` will all be defined/bound.
 
-Option flags:
-- `i_opt` *Flags* - Boolean properties: May be combined with the `|` operator. These may also be specified
-as the last comma-separated argument of a `i_type` template parameter, or as separate macros, e.g
-`#define i_no_clone` is the same as `#define i_opt c_no_clone`.
-  - **c_declared** - container type was predeclared
-  - **c_no_atomic** - used with *arc* type, do simple reference counting.
-  - **c_no_clone** - disable clone functionality in container
-  - **c_no_hash** - don't enable hash function when *c_cmpclass* is specified.
-  - **c_use_cmp** - enable `<` comparison for integral types, or _cmp() for "pro/class" elements.
-  - **c_use_eq** - enable `==` for integral types, and _eq() for pro/class elements
-  - **c_keyclass** - `i_key` is a "class", i.e. must have _clone(), _drop() members.
-  - **c_valclass** - like **c_keyclass**, but for the mapped values in sortedmap / hashmap.
-  - **c_cmpclass** - `i_key` is also the raw/cmp-type and is expected to have _cmp(), _eq(), _hash() members.
-  - **c_keypro** - `i_key` is a "keyclass" with an associated "cmpclass"-type named `i_key`_raw.
-  - **c_valpro** - `i_val` is a "valclass" with an associated "valraw"-type named `i_val`_raw.
-
-**Notes**:
-- When specifying **c_cmpclass** option, `i_key` and `i_keyraw` are always equal, so no conversion functions are needed.
-- `i_use_cmp`/`i_use_eq` are only needed for **vec**, **stack**, **deque**, **list** as sorting and
-linear seach are not enabled by default. For integral types it uses `<` and `==` operators. For pro/class
-element types, _cmp(), _eq() and _hash() functions must be defined if used by container. For plain structs,
-define `i_cmp` / `i_eq` / `i_hash` macros as needed.
+#### Conversion between an alternative key/val type
+- `i_keyraw` *RawType* - Lookup/emplace-function argument "raw" type. Defaults to *i_key*.
+- `i_keyfrom` *Func(r)* - Conversion func from a *i_keyraw* to return a *i_key* type.
+- `i_keytoraw` *Func(p)*  - Conversion func from a *i_key* pointer to a *i_keyraw* type. **[required]** if *i_keyraw* was defined. By default, it returns the dereferenced *i_key* value.
+- `i_valraw` *RawType* - Emplace-function argument "raw" type. Defaults to *i_val*.
+- `i_valfrom` *Func(r)* - Conversion func from a *i_valraw* to return a *i_val* type.
+- `i_valtoraw` *Func(p)*  - Conversion func from a *i_val* pointer to a *i_valraw* type.
 
 </details>
 <details>
@@ -590,10 +673,10 @@ Strings are the most commonly used non-trivial data type. STC containers have pr
 definitions for cstr container elements, so they are fail-safe to use both with the **emplace**
 and non-emplace methods:
 ```c++
-#include "stc/cstr.h"
+#include <stc/cstr.h>
 
 #define i_keypro cstr  // use i_keypro for "pro" types like cstr, arc, box
-#include "stc/vec.h"   // vector of string (cstr)
+#include <stc/vec.h>   // vector of string (cstr)
 ...
 vec_cstr vec = {0};
 cstr s = cstr_lit("a string literal");
@@ -653,12 +736,12 @@ last example on the **hmap** page demonstrates how to specify a map with non-tri
 
 ## User-defined container type name
 
-Define `i_type` and/or `i_key`:
+Define `T` and/or `i_key`:
 ```c++
-// #define i_type MyVec, int // shorthand
-#define i_type MyVec
+// #define T MyVec, int // shorthand
+#define T MyVec
 #define i_key int
-#include "stc/vec.h"
+#include <stc/vec.h>
 
 MyVec vec = {0};
 MyVec_push(&vec, 42);
@@ -669,14 +752,18 @@ MyVec_push(&vec, 42);
 <summary>Pre-declarations</summary>
 
 ## Pre-declarations
-Pre-declare templated container in header file. The container can then e.g. be a "private"
-member of a struct defined in a header file.
+Pre-declare templated container in header file. The container can then e.g. be a member of a
+struct defined in a header file.
+- If the container will use an auxiliary member the with `i_aux AuxType` parameter, the declaration
+must also add it as the last argument: `declare_vec_aux(VecType, Element, AuxType)`.
+- Up to, but not including C23, a `(c_declared)` option must be specified when defining the container.
+See example below.
 
 ```c++
 // Dataset.h
 #ifndef Dataset_H_
 #define Dataset_H_
-#include "stc/types.h"   // include various container data structure templates
+#include <stc/types.h>   // include various container data structure templates
 
 // declare PointVec as a vec. Also struct Point may be incomplete/undeclared.
 declare_vec(PointVec, struct Point);
@@ -697,9 +784,8 @@ Define and use the "private" container in the c-file:
 #include "Dataset.h"
 #include "Point.h"      // struct Point must be defined here.
 
-#define i_type PointVec, struct Point
-#define i_declared      // must flag that the container was pre-declared.
-#include "stc/vec.h"    // Implements PointVec with static linking by default
+#define T PointVec, struct Point, (c_declared) // Was pre-declared.
+#include <stc/vec.h>    // Implements PointVec with static linking by default
 ...
 ```
 </details>
@@ -711,56 +797,60 @@ Sometimes it is useful to extend a container type to store extra data, e.g. a co
 or allocator function pointer or a context which the function pointers can use. Most
 libraries solve this by adding an opaque pointer (void*) or function pointer(s) into
 the data structure for the user to manage. Because most containers are templated,
-an extra template parameter, `i_aux` may be defined to extend the container with
+an auxiliary template parameter, `i_aux` may be defined to extend the container with
 typesafe custom attributes.
 
 The example below shows how to customize containers to work with PostgreSQL memory management.
 It adds a MemoryContext to each container by defining the `i_aux` template parameter.
+`i_aux` may define a struct on the fly, or refer to an already defined type.
 Note that `pgs_realloc` and `pgs_free` is also passed the
 allocated size of the given pointer, unlike standard `realloc` and `free`.
 
 `self->aux` is accessible from the following template parameters / container combinations:
-- `i_malloc`, `i_calloc`, `i_realloc`, `i_free`: **all containers**
+- `i_allocator`: **all containers**
 - `i_eq` : **all containers**
 - `i_cmp`, `i_less`: **all containers except hmap and hset**
 - `i_hash`: **hmap and hset**
 
 ```c++
-// stcpgs.h
+// pgs_alloc.h
 #define pgs_malloc(sz) MemoryContextAlloc(self->aux.memctx, sz)
 #define pgs_calloc(n, sz) MemoryContextAllocZero(self->aux.memctx, (n)*(sz))
 #define pgs_realloc(p, old_sz, sz) (p ? repalloc(p, sz) : pgs_malloc(sz))
 #define pgs_free(p, sz) (p ? pfree(p) : (void)0) // pfree/repalloc does not accept NULL.
 
-#define i_aux { MemoryContext memctx; } // NB: enclose in curly braces!
+#define i_aux struct { MemoryContext memctx; }
 #define i_allocator pgs
 #define i_no_clone
 ```
 Usage is straight forward:
 ```c++
-#define i_type IMap, int, int
-#include "stcpgs.h"
-#include "stc/sortedmap.h"
+#define T IMap, int, int
+#include "pgs_alloc.h"
+#include <stc/sortedmap.h>
 
 void maptest()
 {
-    IMap map = {.aux={CurrentMemoryContext}};
+    IMap map = {.aux={
+        AllocSetContextCreate(CurrentMemoryContext, "MapContext", ALLOCSET_DEFAULT_SIZES)
+    }};
     for (c_range(i, 1, 16))
-        IMap_insert(&map, i*i, i); // uses pgs_malloc
+        IMap_insert(&map, i*i, i); // uses pgs_realloc()
 
     for (c_each(i, IMap, map))
         printf("%d:%d ", i.ref->first, i.ref->second);
 
-    IMap_drop(&map);
+    IMap_drop(&map); // uses psg_free()
+    MemoryContextDelete(map.aux.memctx);
 }
 ```
 Another example is to sort struct elements by the *active field* and *reverse* flag:
 
-[ [Run this code](https://godbolt.org/z/E4hhvzThr) ]
+[ [Run this code](https://godbolt.org/z/aKe5hMYMr) ]
 ```c++
 #include <stdio.h>
 #include <time.h>
-#include "stc/cstr.h"
+#include <stc/cstr.h>
 #include <c11/fmt.h>
 
 typedef struct {
@@ -772,15 +862,15 @@ typedef struct {
 
 enum FMDActive {FMD_fileName, FMD_directory, FMD_size, FMD_lastWriteTime};
 
-struct FMDVector_aux; // defined when specifying i_aux
+struct FMDSelector { enum FMDActive activeField; bool reverse; };
 int FileMetaData_cmp(const struct FMDVector_aux*, const FileMetaData*, const FileMetaData*);
 void FileMetaData_drop(FileMetaData*);
 
-#define i_type FMDVector, FileMetaData, (c_no_clone)
-#define i_aux { enum FMDActive activeField; bool reverse; }
+#define T FMDVector, FileMetaData, (c_no_clone)
+#define i_aux struct FMDSelector
 #define i_cmp(x, y) FileMetaData_cmp(&self->aux, x, y)
 #define i_keydrop FileMetaData_drop
-#include "stc/stack.h"
+#include <stc/stack.h>
 // --------------
 
 int FileMetaData_cmp(const struct FMDVector_aux* aux, const FileMetaData* a, const FileMetaData* b) {
@@ -836,7 +926,8 @@ STC is generally very memory efficient. Memory usage for the different container
 - **deque**, **queue**:  Type size: 2 pointers, 2 isize. Otherwise like *vec*.
 - **hmap/hset**: Type size: 2 pointers, 2 int32_t (default). *hmap* uses one table of keys+value, and one table of precomputed hash-value/used bucket, which occupies only one byte per bucket. The closed hashing has a default max load factor of 85%, and hash table scales by 1.5x when reaching that.
 - **smap/sset**: Type size: 1 pointer. *smap* manages its own ***array of tree-nodes*** for allocation efficiency. Each node uses two 32-bit ints for child nodes, and one byte for `level`, but has ***no parent node***.
-- **arc**: Type size: 1 pointer, 1 long for the reference counter + memory for the shared element.
+- **arc**: Type size: 1 pointer, 1 long for the shared reference counter + memory for the shared element.
+- **arc2**: Type size: 2 pointers, 1 long for the shared reference counter + memory for the shared element.
 - **box**: Type size: 1 pointer + memory for the pointed-to element.
 </details>
 
@@ -889,8 +980,8 @@ STC is generally very memory efficient. Memory usage for the different container
 - **cspan**: Added **column-major** order (fortran) multidimensional spans and transposed views (changed representation of strides).
 - All new faster and smaller **queue** and **deque** implementations, using a circular buffer.
 - Renamed i_extern => `i_import` (i_extern deprecated).
-    - Define `i_import` before `#include "stc/cstr.h"` will also define full utf8 case conversions.
-    - Define `i_import` before `#include "stc/cregex.h"` will also define cstr + utf8 tables.
+    - Define `i_import` before `#include <stc/cstr.h>` will also define full utf8 case conversions.
+    - Define `i_import` before `#include <stc/cregex.h>` will also define cstr + utf8 tables.
 - Renamed c_make() => ***c_make()*** macro for initializing containers with element lists. c_make deprecated.
 - Removed deprecated uppercase flow-control macro names.
 - Other smaller additions, bug fixes and improved documentation.
@@ -906,7 +997,7 @@ STC is generally very memory efficient. Memory usage for the different container
 - Removed RAII macros usage from examples
 - Renamed c_flt_count(i) => `c_flt_counter(i)`
 - Renamed c_flt_last(i) => `c_flt_getcount(i)`
-- Renamed c_ARRAYLEN() => c_arraylen()
+- Renamed c_ARRAYLEN() => c_countof()
 - Removed deprecated c_ARGSV(). Use c_svarg()
 - Removed c_PAIR
 

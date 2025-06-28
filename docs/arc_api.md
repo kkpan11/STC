@@ -14,15 +14,26 @@ All **arc** functions can be called by multiple threads on different instances o
 additional synchronization even if these instances are copies and share ownership of the same object.
 **arc** uses thread-safe atomic reference counting, through the *arc_X_clone()* and *arc_X_drop()* methods.
 
-When declaring a container with shared pointers, define `i_keypro` with the arc type, see example.
+- ***arc type 1*** is the default arc type. It occupies the size of only one pointer, and it can convert
+a raw pointer gotten from an arc back to an arc with the *X_toarc()* function. Conceptually, the arc which
+passed the raw pointer should be ***moved*** (or not dropped), e.g.:
+```c++
+Arc a1 = Arc_make(value);
+Value* vp = Arc_move(&a1).get; // a1 will now be NULL
+Arc a2 = Arc_toarc(vp);
+c_drop(Arc, &a1, &a2);
+```
+- ***arc type 2*** occupies the size of two pointers, however it may also be constructed from a existing unmanaged
+pointer. Enable it by `#define T Arc, key, (c_arc2)`
+- When defining a container with shared pointer elements, add *c_keypro*/*valpro*: `#define T MyVec, MyArc, (c_keypro)`
 
 See similar c++ class [std::shared_ptr](https://en.cppreference.com/w/cpp/memory/shared_ptr) for a functional reference, or Rust [std::sync::Arc](https://doc.rust-lang.org/std/sync/struct.Arc.html) / [std::rc::Rc](https://doc.rust-lang.org/std/rc/struct.Rc.html).
 
 ## Header file and declaration
 
 ```c++
-#define i_type <ct>,<kt>[,<op>] // shorthand for defining i_type, i_key, i_opt
-#define i_type <t>       // arc container type name
+#define T <ct>,<kt>[,<op>] // shorthand
+#define T <ct>           // arc container type name
 // One of the following:
 #define i_key <t>        // key type
 #define i_keyclass <t>   // key type, and bind <t>_clone() and <t>_drop() function names
@@ -44,36 +55,37 @@ See similar c++ class [std::shared_ptr](https://en.cppreference.com/w/cpp/memory
 
 #define i_no_atomic      // Non-atomic reference counting, like Rust Rc.
 #define i_opt c_no_atomic // Same as above, but can combine other options on one line with |.
-#include "stc/arc.h"
+#include <stc/arc.h>
 ```
 When defining a container with **arc** elements, specify `#define i_keypro <arc-type>` instead of `i_key`.
 
-In the following, `X` is the value of `i_key` unless `i_type` is defined.
+In the following, `X` is the value of `i_key` unless `T` is defined.
 
 ## Methods
 ```c++
 arc_X           arc_X_init();                                   // empty shared pointer
 arc_X           arc_X_from(i_keyraw raw);                       // create an arc from raw type (available if i_keyraw defined by user).
-arc_X           arc_X_from_ptr(i_key* p);                       // create an arc from raw pointer. Takes ownership of p.
+arc_X           arc2_X_from_ptr(i_key* ptr);                    // NB! arc2 only: create an arc from raw pointer. Takes ownership of p.
 arc_X           arc_X_make(i_key key);                          // create an arc from constructed key object. Faster than from_ptr().
 
 arc_X           arc_X_clone(arc_X other);                       // return other with increased use count
 void            arc_X_assign(arc_X* self, const arc_X* other);  // shared assign (increases use count)
 void            arc_X_take(arc_X* self, arc_X unowned);         // take ownership of unowned.
 arc_X           arc_X_move(arc_X* self);                        // transfer ownership to receiver; self becomes NULL
-void            arc_X_drop(arc_X* self);                        // destruct (decrease use count, free at 0)
+arc_X           arc1_X_toarc(i_key* ptr);                       // NB! arc1 only: convert raw pointer previously created by arc back to arc.
+void            arc_X_drop(const arc_X* self);                  // destruct (decrease use count, free at 0)
 
-long            arc_X_use_count(const arc_X* self);
-void            arc_X_reset_to(arc_X* self, i_key* p);          // assign new arc from ptr. Takes ownership of p.
+long            arc_X_use_count(arc_X arc);
+void            arc2_X_reset_to(arc_X* self, i_key* ptr);       // NB! arc2 only: assign new arc from ptr. Takes ownership of p.
 
-size_t          arc_X_hash(const arc_X* x);                     // hash value
+size_t          arc_X_hash(const arc_X* self);                  // hash value
 int             arc_X_cmp(const arc_X* x, const arc_X* y);      // compares pointer addresses if no `i_cmp` is specified
                                                                 // is defined. Otherwise uses 'i_cmp' or default cmp.
 bool            arc_X_eq(const arc_X* x, const arc_X* y);       // arc_X_cmp() == 0
 
 // functions on pointed to objects.
 
-size_t          arc_X_value_hash(const i_key* x);
+size_t          arc_X_value_hash(const i_key* self);
 int             arc_X_value_cmp(const i_key* x, const i_key* y);
 bool            arc_X_value_eq(const i_key* x, const i_key* y);
 ```
@@ -83,30 +95,30 @@ bool            arc_X_value_eq(const i_key* x, const i_key* y);
 | Type name        | Type definition                                   | Used to represent...   |
 |:-----------------|:--------------------------------------------------|:-----------------------|
 | `arc_null`       | `{0}`                                             | Init nullptr const     |
-| `arc_X`          | `struct { arc_X_value* get; long* use_count; }`   | The arc type          |
+| `arc_X`          | `union { arc_X_value* get; }`                     | The arc type          |
 | `arc_X_value`    | `i_key`                                           | The arc element type  |
 | `arc_X_raw`      | `i_keyraw`                                        | Convertion type        |
 
 ## Example
 
-[ [Run this code](https://godbolt.org/z/1aehd33b5) ]
+[ [Run this code](https://godbolt.org/z/TvcoxG1fz) ]
 <!--{%raw%}-->
 ```c++
 // Create two stacks with arcs to maps.
 // Demonstrate sharing and cloning of maps.
 // Show elements dropped.
-#include "stc/cstr.h"
+#include <stc/cstr.h>
 
-#define i_type Map, cstr, int, (c_keypro) // cstr is a "pro" type
+#define T Map, cstr, int, (c_keypro) // cstr is a "pro" type
 #define i_keydrop(p) (printf("  drop name: %s\n", cstr_str(p)), cstr_drop(p))
-#include "stc/sortedmap.h"
+#include <stc/sortedmap.h>
 
 // keyclass binds _clone & _drop:
-#define i_type Arc, Map, (c_keyclass) // (Atomic) Ref. Counted pointer
-#include "stc/arc.h"   // try to switch to box.h!
+#define T Arc, Map, (c_keyclass) // (Atomic) Ref. Counted pointer
+#include <stc/arc.h>   // try to switch to box.h!
 
-#define i_type Stack, Arc, (c_keypro) // arc is "pro"
-#include "stc/stack.h"
+#define T Stack, Arc, (c_keypro) // arc is "pro"
+#include <stc/stack.h>
 
 int main(void)
 {

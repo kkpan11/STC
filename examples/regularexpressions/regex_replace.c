@@ -1,6 +1,6 @@
-#include "stc/cregex.h"
-#include "stc/cstr.h"
-#include "stc/csview.h"
+#include <stc/cregex.h>
+#include <stc/cstr.h>
+#include <stc/csview.h>
 
 bool add_10_years(int group, csview match, cstr* out) {
     if (group == 1) { // year match
@@ -30,8 +30,8 @@ int main(void)
         printf("fixed: %s\n", cstr_str(&str));
 
         /* US date format, and add 10 years to dates: */
-        cstr_take(&str, cregex_replace_aio_pro(pattern, csview_from(input), "$1/$3/$2",
-                                               INT32_MAX, add_10_years, CREG_DEFAULT));
+        cstr_take(&str, cregex_replace_aio_sv(pattern, csview_from(input), "$1/$3/$2",
+                                              INT32_MAX, add_10_years, CREG_DEFAULT));
         printf("us+10: %s\n", cstr_str(&str));
 
         /* Wrap first date inside []: */
@@ -48,7 +48,7 @@ int main(void)
         printf("euros: %s\n", cstr_str(&str));
 
         /* Strip out everything but the matches */
-        cstr_take(&str, cregex_replace_pro(&re, csview_from(input), "$3.$2.$1;",
+        cstr_take(&str, cregex_replace_sv(&re, csview_from(input), "$3.$2.$1;",
                                           INT32_MAX, NULL, CREG_STRIP));
         printf("strip: %s\n", cstr_str(&str));
 

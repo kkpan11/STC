@@ -23,7 +23,7 @@
  */
 
 /* cbox: heap allocated boxed type
-#include "stc/cstr.h"
+#include <stc/cstr.h>
 
 typedef struct { cstr name, email; } Person;
 
@@ -40,9 +40,8 @@ void Person_drop(Person* p) {
     c_drop(cstr, &p->name, &p->email);
 }
 
-#define i_type PBox
-#define i_valclass Person // bind Person clone+drop fn's
-#include "stc/box.h"
+#define T PBox, Person, (c_keyclass) // bind Person clone+drop fn's
+#include <stc/box.h>
 
 int main(void) {
     PBox p = PBox_from(Person_from("John Smiths", "josmiths@gmail.com"));
@@ -74,12 +73,12 @@ int main(void) {
 typedef i_keyraw _m_raw;
 
 #ifndef i_declared
-_c_DEFTYPES(_c_box_types, Self, i_key);
+_c_DEFTYPES(declare_box, Self, i_key);
 #endif
 
 // constructors (take ownership)
 STC_INLINE Self _c_MEMB(_init)(void)
-    { return c_literal(Self){NULL}; }
+    { return c_literal(Self){0}; }
 
 STC_INLINE long _c_MEMB(_use_count)(const Self* self)
     { return (long)(self->get != NULL); }
@@ -87,7 +86,7 @@ STC_INLINE long _c_MEMB(_use_count)(const Self* self)
 
 // c++: std::make_unique<i_key>(val)
 STC_INLINE Self _c_MEMB(_make)(_m_value val) {
-    Self box = {_i_malloc(_m_value, 1)};
+    Self box = {i_new_n(_m_value, 1)};
     *box.get = val;
     return box;
 }
@@ -144,7 +143,7 @@ STC_INLINE void _c_MEMB(_assign)(Self* self, Self* owned) {
 #if !defined i_no_clone
     STC_INLINE Self _c_MEMB(_clone)(Self other) {
         if (other.get == NULL) return other;
-        Self out = {_i_malloc(_m_value, 1)};
+        Self out = {i_new_n(_m_value, 1)};
         *out.get = i_keyclone((*other.get));
         return out;
     }

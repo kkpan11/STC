@@ -1,6 +1,6 @@
 /* MIT License
  *
- * Copyright (c) 2025 Tyge Løvset
+ * Copyright (c) 2025 Tyge Løvmap
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,27 +21,18 @@
  * SOFTWARE.
  */
 
-// Sorted set - implemented as an AA-tree (balanced binary tree).
+// Unordered map - implemented with the robin-hood hashing scheme.
 /*
+#define T IRefc, int
+#include <stc/rc.h>
 #include <stdio.h>
 
-#define T Intset, int
-#include <stc/sortedset.h> // sorted set of int
-
 int main(void) {
-    Intset set = {0};
-    Intset_insert(&set, 5);
-    Intset_insert(&set, 8);
-    Intset_insert(&set, 3);
-    Intset_insert(&set, 5);
-
-    for (c_each(k, Intset, set))
-        printf(" %d\n", *k.ref);
-
-    Intset_drop(&set);
+    IRefc rc = IRefc_make(42);
+    IRefc_drop(&rc);
 }
 */
 
-#define _i_prefix sset_
-#define _i_is_set
-#include "smap.h"
+#define i_no_atomic
+#define _i_prefix rc_
+#include "arc.h"

@@ -17,8 +17,8 @@ See the c++ class [std::unordered_map](https://en.cppreference.com/w/cpp/contain
 ## Header file and declaration
 
 ```c++
-#define i_type <ct>,<kt>,<vt>[,<op>] // shorthand for defining i_type, i_key, i_val, i_opt
-#define i_type <t>            // container type name (default: hmap_{i_key})
+#define T <ct>,<kt>,<vt>[,<op>] // shorthand for defining T, i_key, i_val, i_opt
+#define T <ct>                // container type name (default: hmap_{i_key})
 // One of the following:
 #define i_key <t>             // key type
 #define i_keyclass <t>        // key type, and bind <t>_clone() and <t>_drop() function names
@@ -45,9 +45,9 @@ See the c++ class [std::unordered_map](https://en.cppreference.com/w/cpp/contain
 #define i_valfrom <fn>        // conversion func i_valraw => i_val
 #define i_valtoraw <fn>       // conversion func i_val* => i_valraw
 
-#include "stc/hashmap.h"
+#include <stc/hashmap.h>
 ```
-- In the following, `X` is the value of `i_key` unless `i_type` is defined.
+- In the following, `X` is the value of `i_key` unless `T` is defined.
 - **emplace**-functions are only available when `i_keyraw`/`i_valraw` are implicitly or explicitly defined.
 ## Methods
 
@@ -56,10 +56,10 @@ hmap_X          hmap_X_init(void);
 hmap_X          hmap_X_with_capacity(isize cap);
 
 hmap_X          hmap_X_clone(hmap_x map);
-void            hmap_X_copy(hmap_X* self, hmap_X other);
+void            hmap_X_copy(hmap_X* self, const hmap_X* other);
 void            hmap_X_take(hmap_X* self, hmap_X unowned);                        // take ownership of unowned
 hmap_X          hmap_X_move(hmap_X* self);                                        // move
-void            hmap_X_drop(hmap_X* self);                                        // destructor
+void            hmap_X_drop(const hmap_X* self);                                  // destructor
 
 void            hmap_X_clear(hmap_X* self);
 float           hmap_X_max_load_factor(const hmap_X* self);                       // default: 0.85f
@@ -95,7 +95,7 @@ hmap_X_iter     hmap_X_end(const hmap_X* self);
 void            hmap_X_next(hmap_X_iter* it);
 hmap_X_iter     hmap_X_advance(hmap_X_iter it, hmap_X_ssize n);
 
-hmap_X_value    hmap_X_value_clone(hmap_X_value val);
+hmap_X_value    hmap_X_value_clone(const hmap_X* self, hmap_X_value val);
 hmap_X_raw      hmap_X_value_toraw(hmap_X_value* pval);
 ```
 Free helper functions:
@@ -127,12 +127,12 @@ bool            c_memcmp_eq(const i_keyraw* a, const i_keyraw* b);    // !memcmp
 
 ## Examples
 
-[ [Run this code](https://godbolt.org/z/GenofeYe3) ]
+[ [Run this code](https://godbolt.org/z/5441E5dEx) ]
 ```c++
-#include "stc/cstr.h"
+#include <stc/cstr.h>
 
-#define i_type hmap_cstr, cstr, cstr, (c_keypro | c_valpro)
-#include "stc/hashmap.h"
+#define T hmap_cstr, cstr, cstr, (c_keypro | c_valpro)
+#include <stc/hashmap.h>
 
 int main(void)
 {
@@ -164,13 +164,13 @@ int main(void)
 ### Example 2
 Demonstrate hmap with mapped POD type Vec3i: hmap<int, Vec3i>:
 
-[ [Run this code](https://godbolt.org/z/nhjMvvWjo) ]
+[ [Run this code](https://godbolt.org/z/q46YnvWee) ]
 ```c++
 #include <stdio.h>
 typedef struct { int x, y, z; } Vec3i;
 
-#define i_type hmap_iv, int, Vec3i
-#include "stc/hashmap.h"
+#define T hmap_iv, int, Vec3i
+#include <stc/hashmap.h>
 
 int main(void)
 {
@@ -191,14 +191,14 @@ int main(void)
 ### Example 3
 Inverse: Demonstrate hmap with plain-old-data key type Vec3i and int as mapped type: hmap<Vec3i, int>.
 
-[ [Run this code](https://godbolt.org/z/9qznc7Gec) ]
+[ [Run this code](https://godbolt.org/z/sjcqG35x6) ]
 ```c++
 #include <stdio.h>
 typedef struct { int x, y, z; } Vec3i;
 
-#define i_type hmap_vi, Vec3i, int
+#define T hmap_vi, Vec3i, int
 #define i_eq c_memcmp_eq // bitwise equal
-#include "stc/hashmap.h"
+#include <stc/hashmap.h>
 
 int main(void)
 {
@@ -220,9 +220,9 @@ int main(void)
 ### Example 4: Advanced
 Key type is struct. Based on https://doc.rust-lang.org/std/collections/struct.HashMap.html
 
-[ [Run this code](https://godbolt.org/z/Wzv5fEYd9) ]
+[ [Run this code](https://godbolt.org/z/3WGx8sWET) ]
 ```c++
-#include "stc/cstr.h"
+#include <stc/cstr.h>
 
 typedef struct {
     cstr name;
@@ -253,8 +253,8 @@ void Viking_drop(Viking* vp) {
 }
 
 // binds the four Viking_xxxx() functions above
-#define i_type Vikings, Viking, int, (c_keyclass)
-#include "stc/hashmap.h"
+#define T Vikings, Viking, int, (c_keyclass)
+#include <stc/hashmap.h>
 
 int main(void)
 {
@@ -283,10 +283,10 @@ In example 4 we needed to construct a lookup key which may allocate strings, and
 In this example we use keyraw feature to make it simpler to use and avoids the creation of a Viking object
 entirely when doing lookup.
 
-[ [Run this code](https://godbolt.org/z/b7f15zPK3) ]
+[ [Run this code](https://godbolt.org/z/Y5sTefr4q) ]
 <!--{%raw%}-->
 ```c++
-#include "stc/cstr.h"
+#include <stc/cstr.h>
 
 typedef struct Viking {
     cstr name;
@@ -331,8 +331,8 @@ Viking_raw Viking_toraw(const Viking* vp) {
 }
 
 // Define the map. Viking is now a "pro"-type:
-#define i_type Vikings, Viking, int, (c_keypro)
-#include "stc/hashmap.h"
+#define T Vikings, Viking, int, (c_keypro)
+#include <stc/hashmap.h>
 
 int main(void)
 {

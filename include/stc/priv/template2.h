@@ -21,12 +21,13 @@
  * SOFTWARE.
  */
 // IWYU pragma: private
-#undef i_TYPE       // [deprecated]
+#undef T            // alias for i_type
 #undef i_type
 #undef i_class
 #undef i_tag
 #undef i_opt
 #undef i_capacity
+#undef i_allocator
 
 #undef i_key
 #undef i_keypro     // Replaces next two
@@ -63,6 +64,8 @@
 #undef i_no_emplace
 #undef i_declared
 
+#undef _i_aux_alloc
+#undef _i_aux_def
 #undef _i_has_cmp
 #undef _i_has_eq
 #undef _i_prefix

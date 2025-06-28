@@ -1,24 +1,25 @@
 // Create a vec and a list of shared pointers to maps,
 // and demonstrate sharing and cloning of maps.
-#include "stc/cstr.h"
-#define i_type Map, cstr, int, (c_keypro)
+#include <stc/cstr.h>
+#define T Map, cstr, int, (c_keypro)
 #define i_keydrop(p) (printf("drop name: %s\n", cstr_str(p)), cstr_drop(p))
-#include "stc/sortedmap.h"
+#include <stc/sortedmap.h>
 
-#define i_type Arc, Map, (c_no_atomic) // non-atomic ref. counted Map
+#define T Arc, Map, (c_no_atomic) // non-atomic ref. counted Map
 #define i_keydrop(p) (printf("drop Arc:\n"), Map_drop(p))
-#include "stc/arc.h"
+#include <stc/arc.h>
 
-#define i_type Vec, Arc, (c_keypro) // arc is a "pro" type
-#include "stc/vec.h"
+#define T Vec, Arc, (c_keypro) // arc is a "pro" type
+#include <stc/vec.h>
 
-#define i_type List, Arc, (c_keypro)
-#include "stc/list.h"
+#define T List, Arc, (c_keypro)
+#include <stc/list.h>
 
 int main(void)
 {
-    c_with (Vec vec = {0}, Vec_drop(&vec))
-    c_with (List list = {0}, List_drop(&list))
+    Vec vec = {0};
+    List list = {0};
+    c_defer(Vec_drop(&vec), List_drop(&list))
     {
         // POPULATE vec with shared pointers to Maps:
         Map *map;
@@ -28,14 +29,12 @@ int main(void)
         Map_emplace(map, "Mary", 1995);
         Map_emplace(map, "Joanna", 1992);
 
-        //map = Vec_push(&vec, Arc_from(Map_init()))->get;
         map = Vec_emplace(&vec, Map_init())->get;
         Map_emplace(map, "Rosanna", 2001);
         Map_emplace(map, "Brad", 1999);
         Map_emplace(map, "Jack", 1980);
 
         // POPULATE list:
-        //map = List_push_back(&list, Arc_from(Map_init()))->get;
         map = List_emplace_back(&list, Map_init())->get;
         Map_emplace(map, "Steve", 1979);
         Map_emplace(map, "Rick", 1974);

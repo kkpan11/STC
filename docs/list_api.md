@@ -22,8 +22,8 @@ See the c++ class [std::list](https://en.cppreference.com/w/cpp/container/list) 
 ## Header file and declaration
 
 ```c++
-#define i_type <ct>,<kt>[,<op>] // shorthand for defining i_type, i_key, i_opt
-#define i_type <t>       // list container type name (default: list_{i_key})
+#define T <ct>,<kt>[,<op>] // shorthand for defining T, i_key, i_opt
+#define T <ct>           // list container type name (default: list_{i_key})
 // One of the following:
 #define i_key <t>        // key type
 #define i_keyclass <t>   // key type, and bind <t>_clone() and <t>_drop() function names
@@ -41,11 +41,11 @@ See the c++ class [std::list](https://en.cppreference.com/w/cpp/container/list) 
 #define i_cmpclass <t>   // conversion "raw class". binds <t>_cmp(),  <t>_eq(),  <t>_hash()
 #define i_keytoraw <fn>  // conversion func i_key* => i_keyraw
 #define i_keyfrom <fn>   // conversion func i_keyraw => i_key
-#include "stc/list.h"
+#include <stc/list.h>
 ```
 - Defining either `i_use_cmp`, `i_less` or `i_cmp` will enable sorting
 - **emplace**-functions are only available when `i_keyraw` is implicitly or explicitly defined.
-- In the following, `X` is the value of `i_key` unless `i_type` is defined.
+- In the following, `X` is the value of `i_key` unless `T` is defined.
 
 ## Methods
 
@@ -53,10 +53,10 @@ See the c++ class [std::list](https://en.cppreference.com/w/cpp/container/list) 
 list_X          list_X_init(void);
 
 list_X          list_X_clone(list_X list);
-void            list_X_copy(list_X* self, list_X other);
+void            list_X_copy(list_X* self, const list_X* other);
 void            list_X_take(list_X* self, list_X unowned);                        // take ownership of unowned
 list_X          list_X_move(list_X* self);                                        // move
-void            list_X_drop(list_X* self);                                        // destructor
+void            list_X_drop(const list_X* self);                                  // destructor
 
 void            list_X_clear(list_X* self);
 
@@ -112,7 +112,7 @@ void            list_X_next(list_X_iter* it);
 list_X_iter     list_X_advance(list_X_iter it, size_t n);                        // return n elements ahead.
 
 bool            list_X_eq(const list_X* c1, const list_X* c2);                   // equality test
-i_key           list_X_value_clone(i_key val);
+i_key           list_X_value_clone(const list_X* self, i_key val);
 list_X_raw      list_X_value_toraw(const i_key* pval);
 void            list_X_value_drop(i_key* pval);
 ```
@@ -131,10 +131,10 @@ void            list_X_value_drop(i_key* pval);
 
 Interleave *push_front()* / *push_back()* then *sort()*:
 
-[ [Run this code](https://godbolt.org/z/fbdfono7s) ]
+[ [Run this code](https://godbolt.org/z/1aofesMGv) ]
 ```c++
-#define i_type DList, double, (c_use_cmp)
-#include "stc/list.h"
+#define T DList, double, (c_use_cmp)
+#include <stc/list.h>
 
 #include <stdio.h>
 
@@ -163,11 +163,11 @@ int main(void) {
 ### Example 2
 Use of *erase_at()* and *erase_range()*:
 
-[ [Run this code](https://godbolt.org/z/MPaGb8jcG) ]
+[ [Run this code](https://godbolt.org/z/era85saWv) ]
 ```c++
 #include <stdio.h>
-#define i_type IList, int
-#include "stc/list.h"
+#define T IList, int
+#include <stc/list.h>
 
 int main(void)
 {
@@ -193,11 +193,11 @@ int main(void)
 ### Example 3
 Splice {**30**, **40**} from *L2* into *L1* before **3**:
 
-[ [Run this code](https://godbolt.org/z/cvon65ac6) ]
+[ [Run this code](https://godbolt.org/z/854zGeKq6) ]
 ```c++
 #include <stdio.h>
-#define i_type IList, int
-#include "stc/list.h"
+#define T IList, int
+#include <stc/list.h>
 
 int main(void) {
     IList L1 = c_make(IList, {1, 2, 3, 4, 5});

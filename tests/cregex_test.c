@@ -1,7 +1,7 @@
-#include "stc/cregex.h"
-#include "stc/cstr.h"
-#include "stc/csview.h"
-#include "stc/algorithm.h"
+#include <stc/cregex.h>
+#include <stc/cstr.h>
+#include <stc/csview.h>
+#include <stc/algorithm.h>
 #include "ctest.h"
 #include <string.h>
 
@@ -274,12 +274,13 @@ TEST(cregex, replace)
         EXPECT_STREQ(cstr_str(&str), "start date: YYYY-MM-DD, end date: YYYY-MM-DD");
 
         // US date format, and add 10 years to dates:
-        cstr_take(&str, cregex_replace_aio_pro(pattern, csview_from(input), "$1/$3/$2",
-                                               INT32_MAX, add_10_years, CREG_DEFAULT));
+        cstr_take(&str, cregex_replace_aio_sv(pattern, csview_from(input), "$1/$3/$2",
+                                              INT32_MAX, add_10_years, CREG_DEFAULT));
         EXPECT_STREQ(cstr_str(&str), "start date: 2025/31/12, end date: 2032/28/02");
 
-        // Wrap first date inside []:
-        cstr_take(&str, cregex_replace_aio_pro(pattern, csview_from(input), "[$0]", 1, NULL, CREG_DEFAULT));
+        // Wrap only the first date inside []:
+        cstr_take(&str, cregex_replace_aio_sv(pattern, csview_from(input), "[$0]", 1,
+                                              NULL, CREG_DEFAULT));
         EXPECT_STREQ(cstr_str(&str), "start date: [2015-12-31], end date: 2022-02-28");
 
         // Wrap all words in ${}
@@ -295,8 +296,8 @@ TEST(cregex, replace)
         EXPECT_STREQ(cstr_str(&str), "start date: 31.12.2015, end date: 28.02.2022");
 
         // Strip out everything but the matches
-        cstr_take(&str, cregex_replace_pro(&re, csview_from(input), "$3.$2.$1;",
-                                           INT32_MAX, NULL, CREG_STRIP));
+        cstr_take(&str, cregex_replace_sv(&re, csview_from(input), "$3.$2.$1;",
+                                          INT32_MAX, NULL, CREG_STRIP));
         EXPECT_STREQ(cstr_str(&str), "31.12.2015;28.02.2022;");
     }
 }

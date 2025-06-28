@@ -23,8 +23,8 @@
 /*
 // https://stackoverflow.com/questions/70935435/how-to-create-variants-in-rust
 #include <stdio.h>
-#include "stc/cstr.h"
-#include "stc/algorithm.h"
+#include <stc/cstr.h>
+#include <stc/algorithm.h>
 
 c_sumtype (Action,
     (ActionSpeak, cstr),
@@ -36,8 +36,8 @@ c_sumtype (Action,
 );
 
 void Action_drop(Action* self) {
-    if (c_is(self, ActionSpeak, x))
-        cstr_drop(x);
+    if (c_is(self, ActionSpeak, s))
+        cstr_drop(s);
 }
 
 void action(Action* action) {
@@ -82,22 +82,22 @@ int main(void) {
 #define _c_LOOP_END_1 ,_c_LOOP1
 #define _c_LOOP0(f,T,x,...) f c_EXPAND((T, c_EXPAND x)) _c_LOOP_INDIRECTION _c_EMPTY()()(f,T,__VA_ARGS__)
 #define _c_LOOP1(...)
-#define _c_CHECK(x,...) c_TUPLE_AT_1 c_EXPAND((__VA_ARGS__,x,))
+#define _c_CHECK(x,...) c_TUPLE_AT_1(__VA_ARGS__,x,)
 #define _c_E0(...) __VA_ARGS__
-#define _c_E1(...) _c_E0(_c_E0(_c_E0(_c_E0(_c_E0(__VA_ARGS__)))))
-#define _c_E2(...) _c_E1(_c_E1(_c_E1(_c_E1(_c_E1(__VA_ARGS__)))))
-#define c_EVAL(...) _c_E2(_c_E2(_c_E2(_c_E2(__VA_ARGS__))))
+#define _c_E1(...) _c_E0(_c_E0(_c_E0(_c_E0(_c_E0(_c_E0(__VA_ARGS__))))))
+#define _c_E2(...) _c_E1(_c_E1(_c_E1(_c_E1(_c_E1(_c_E1(__VA_ARGS__))))))
+#define c_EVAL(...) _c_E2(_c_E2(_c_E2(__VA_ARGS__))) // support up to 130 variants
 #define c_LOOP(f,T,x,...) _c_CHECK(_c_LOOP0, c_JOIN(_c_LOOP_END_, c_NUMARGS(c_EXPAND x)))(f,T,x,__VA_ARGS__)
 
 
-#define _c_enum_1(x,...) (x=1, __VA_ARGS__)
+#define _c_enum_1(x,...) (x=__LINE__*100, __VA_ARGS__)
 #define _c_vartuple_tag(T, Tag, ...) Tag,
 #define _c_vartuple_type(T, Tag, ...) typedef __VA_ARGS__ Tag##_type; typedef T Tag##_sumtype;
-#define _c_vartuple_var(T, Tag, ...) struct { enum enum_##T tag; Tag##_type var; } Tag;
+#define _c_vartuple_var(T, Tag, ...) struct { enum enum_##T tag; Tag##_type get; } Tag;
 
 #define c_sumtype(T, ...) \
     typedef union T T; \
-    enum enum_##T { c_EVAL(c_LOOP(_c_vartuple_tag, T, c_EXPAND(_c_enum_1 __VA_ARGS__), (0),)) }; \
+    enum enum_##T { c_EVAL(c_LOOP(_c_vartuple_tag, T, _c_enum_1 __VA_ARGS__, (0),)) }; \
     c_EVAL(c_LOOP(_c_vartuple_type, T,  __VA_ARGS__, (0),)) \
     union T { \
         struct { enum enum_##T tag; } _any_; \
@@ -111,31 +111,30 @@ int main(void) {
 
     #define c_is_2(Tag, x) \
         break; case Tag: \
-        for (__typeof__(_vp1->Tag.var)* x = &_vp1->Tag.var; x; x = NULL)
+        for (__typeof__(_vp1->Tag.get)* x = &_vp1->Tag.get; x; x = NULL)
 
     #define c_is_3(varptr, Tag, x) \
         false) ; else for (__typeof__(varptr) _vp2 = (varptr); _vp2; _vp2 = NULL) \
-            if (c_holds(_vp2, Tag)) \
-                for (__typeof__(_vp2->Tag.var) *x = &_vp2->Tag.var; x; x = NULL
+            if (c_is_variant(_vp2, Tag)) \
+                for (__typeof__(_vp2->Tag.get) *x = &_vp2->Tag.get; x; x = NULL
 #else
     typedef union { struct { int tag; } _any_; } _c_any_variant;
     #define c_when(varptr) \
-        for (_c_any_variant* _vp1 = (_c_any_variant *)(varptr) + 0*sizeof((varptr)->_any_.tag); \
-             _vp1; _vp1 = NULL) \
+        for (_c_any_variant* _vp1 = (_c_any_variant *)(varptr); \
+             _vp1; _vp1 = NULL, (void)sizeof((varptr)->_any_.tag)) \
             switch (_vp1->_any_.tag)
 
     #define c_is_2(Tag, x) \
         break; case Tag: \
-        for (Tag##_type *x = &((Tag##_sumtype *)_vp1)->Tag.var; x; x = NULL)
+        for (Tag##_type *x = &((Tag##_sumtype *)_vp1)->Tag.get; x; x = NULL)
 
     #define c_is_3(varptr, Tag, x) \
         false) ; else for (Tag##_sumtype* _vp2 = c_const_cast(Tag##_sumtype*, varptr); _vp2; _vp2 = NULL) \
-            if (c_holds(_vp2, Tag)) \
-                for (Tag##_type *x = &_vp2->Tag.var; x; x = NULL
+            if (c_is_variant(_vp2, Tag)) \
+                for (Tag##_type *x = &_vp2->Tag.get; x; x = NULL
 #endif
 
-#define c_if_is(...) if (c_is_3(__VA_ARGS__)) // [deprecated]
-
+// Handling multiple tags with different payloads:
 #define c_is(...) c_MACRO_OVERLOAD(c_is, __VA_ARGS__)
 #define c_is_1(Tag) \
     break; case Tag:
@@ -143,16 +142,30 @@ int main(void) {
 #define c_or_is(Tag) \
     ; case Tag:
 
+// Type checked multiple tags with same payload:
+#define c_is_same(...) c_MACRO_OVERLOAD(c_is_same, __VA_ARGS__)
+#define _c_chk(Tag1, Tag2) \
+    case 1 ? Tag1 : sizeof((Tag1##_type*)0 == (Tag2##_type*)0):
+#define c_is_same_2(Tag1, Tag2) \
+    break; _c_chk(Tag1, Tag2) case Tag2:
+#define c_is_same_3(Tag1, Tag2, Tag3) \
+    break; _c_chk(Tag1, Tag2) _c_chk(Tag2, Tag3) case Tag3:
+#define c_is_same_4(Tag1, Tag2, Tag3, Tag4) \
+    break; _c_chk(Tag1, Tag2) _c_chk(Tag2, Tag3) _c_chk(Tag3, Tag4) case Tag4:
+
 #define c_otherwise \
     break; default:
 
 #define c_variant(Tag, ...) \
-    (c_literal(Tag##_sumtype){.Tag={.tag=Tag, .var=__VA_ARGS__}})
+    (c_literal(Tag##_sumtype){.Tag={.tag=Tag, .get=__VA_ARGS__}})
 
-#define c_tag_index(varptr) \
+#define c_is_variant(varptr, Tag) \
+    ((varptr)->Tag.tag == Tag)
+
+#define c_get_if(varptr, Tag) \
+    (c_is_variant(varptr, Tag) ? &(varptr)->Tag.get : NULL)
+
+#define c_variant_index(varptr) \
     ((int)(varptr)->_any_.tag)
-
-#define c_holds(varptr, Tag) \
-    ((varptr)->_any_.tag == Tag)
 
 #endif // STC_SUMTYPE_H_INCLUDED

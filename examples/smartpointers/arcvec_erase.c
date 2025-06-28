@@ -4,18 +4,19 @@ void show_drop(int* x) { printf("drop: %d\n", *x); }
 
 
 // enable sort/search for non-atomic Arc int type
-#define i_type Arc, int, (c_no_atomic | c_use_cmp)
+#define T Arc, int, (c_no_atomic | c_use_cmp)
 #define i_keydrop show_drop
-#include "stc/arc.h"        // Shared pointer to int
+#include <stc/arc.h>        // Shared pointer to int
 
 // arc is "pro", enable search/sort
-#define i_type Vec, Arc, (c_keypro | c_use_cmp)
-#include "stc/vec.h"        // Vec: vec<Arc>
+#define T Vec, Arc, (c_keypro | c_use_cmp)
+#include <stc/vec.h>        // Vec: vec<Arc>
 
 
 int main(void)
 {
     Vec vec = c_make(Vec, {2012, 1990, 2012, 2019, 2015});
+    printf("elm size: %d\n", (int)sizeof(Arc));
 
     // clone the second 2012 and push it back.
     // note: cloning make sure that vec.data[2] has ref count 2.

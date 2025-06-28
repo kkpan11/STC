@@ -2,11 +2,11 @@
 
 #include <time.h>
 #include <stdio.h>
-#include "stc/cstr.h"
-#include "stc/coroutine.h"
+#include <stc/cstr.h>
+#include <stc/coroutine.h>
 
 cco_task_struct (file_read) {
-    file_read_state cco;
+    file_read_base base;
     const char* path;
     cstr line;
     FILE* fp;
@@ -16,31 +16,30 @@ cco_task_struct (file_read) {
 
 int file_read(struct file_read* co, cco_fiber* fb)
 {
-    cco_routine (co) {
+    cco_async (co) {
         (void)fb;
         co->fp = fopen(co->path, "r");
         co->line = cstr_init();
 
         while (true) {
-            // emulate async io: await 10ms per line
-            cco_await_timer_sec(&co->tm, 0.010);
+            // emulate async io: await 1ms per line
+            cco_await_timer(&co->tm, 0.001);
 
             if (!cstr_getline(&co->line, co->fp))
                 break;
             cco_yield;
         }
-
-        cco_finally:
-        fclose(co->fp);
-        cstr_drop(&co->line);
-        puts("done file_read");
     }
+
+    fclose(co->fp);
+    cstr_drop(&co->line);
+    puts("done file_read");
     return 0;
 }
 
 
 cco_task_struct (count_line) {
-    count_line_state cco;
+    count_line_base base;
     cstr path;
     struct file_read reader;
     int lineCount;
@@ -49,8 +48,8 @@ cco_task_struct (count_line) {
 
 int count_line(struct count_line* co, cco_fiber* fb)
 {
-    cco_routine (co) {
-        co->reader.cco.func = file_read;
+    cco_async (co) {
+        co->reader.base.func = file_read;
         co->reader.path = cstr_str(&co->path);
 
         while (true) {
@@ -60,11 +59,10 @@ int count_line(struct count_line* co, cco_fiber* fb)
             co->lineCount += 1;
             cco_yield;
         }
-
-        cco_finally:
-        cstr_drop(&co->path);
-        puts("done count_line");
     }
+
+    cstr_drop(&co->path);
+    puts("done count_line");
     return 0;
 }
 
@@ -73,7 +71,7 @@ int main(void)
 {
     // Creates a new task
     struct count_line countTask = {
-        .cco = {count_line},
+        .base = {count_line},
         .path = cstr_from(__FILE__),
     };
 

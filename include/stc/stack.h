@@ -35,40 +35,51 @@
   #define _i_prefix stack_
 #endif
 #include "priv/template.h"
-
 #ifndef i_declared
+#if c_NUMARGS(i_type) == 4
+  #define i_capacity i_val
+#endif
 #ifdef i_capacity
   #define i_no_clone
-  _c_DEFTYPES(_c_stack_fixed, Self, i_key, i_capacity);
+  _c_DEFTYPES(declare_stack_fixed, Self, i_key, i_capacity);
 #else
-  _c_DEFTYPES(_c_vec_types, Self, i_key);
+  _c_DEFTYPES(_declare_stack, Self, i_key, _i_aux_def);
 #endif
 #endif
 typedef i_keyraw _m_raw;
 
-STC_INLINE Self _c_MEMB(_init)(void)
-    { Self s={0}; return s; }
-
 #ifdef i_capacity
-STC_INLINE Self _c_MEMB(_move)(Self *self)
-    { return *self; }
+STC_INLINE void _c_MEMB(_init)(Self* news)
+    { news->size = 0; }
+
+STC_INLINE isize _c_MEMB(_capacity)(const Self* self)
+    { (void)self; return i_capacity; }
+
+STC_INLINE bool _c_MEMB(_reserve)(Self* self, isize n)
+    { (void)self; return n <= i_capacity; }
+
 #else
 
 STC_INLINE Self _c_MEMB(_move)(Self *self) {
     Self m = *self;
-    memset(self, 0, sizeof *self);
+    self->capacity = self->size = 0;
+    self->data = NULL;
     return m;
 }
 
-STC_INLINE Self _c_MEMB(_with_capacity)(isize cap) {
-    Self out = {_i_malloc(_m_value, cap), 0, cap};
-    return out;
-}
+STC_INLINE isize _c_MEMB(_capacity)(const Self* self)
+    { return self->capacity; }
 
-STC_INLINE Self _c_MEMB(_with_size)(isize size, _m_value null) {
-    Self out = {_i_malloc(_m_value, size), size, size};
-    while (size) out.data[--size] = null;
-    return out;
+STC_INLINE bool _c_MEMB(_reserve)(Self* self, isize n) {
+    if (n > self->capacity || (n && n == self->size)) {
+        _m_value *d = (_m_value *)i_realloc(self->data, self->capacity*c_sizeof *d,
+                                            n*c_sizeof *d);
+        if (d == NULL)
+            return false;
+        self->data = d;
+        self->capacity = n;
+    }
+    return self->data != NULL;
 }
 #endif // i_capacity
 
@@ -98,33 +109,8 @@ STC_INLINE isize _c_MEMB(_size)(const Self* self)
 STC_INLINE bool _c_MEMB(_is_empty)(const Self* self)
     { return !self->size; }
 
-STC_INLINE isize _c_MEMB(_capacity)(const Self* self) {
-#ifndef i_capacity
-    return self->capacity;
-#else
-    (void)self; return i_capacity;
-#endif
-}
-
-STC_INLINE void _c_MEMB(_value_drop)(_m_value* val)
-    { i_keydrop(val); }
-
-STC_INLINE bool _c_MEMB(_reserve)(Self* self, isize n) {
-#ifdef i_capacity
-    (void)self;
-    return n <= i_capacity;
-#else
-    if (n > self->capacity || (n && n == self->size)) {
-        _m_value *d = (_m_value *)i_realloc(self->data, self->capacity*c_sizeof *d,
-                                            n*c_sizeof *d);
-        if (d == NULL)
-            return false;
-        self->data = d;
-        self->capacity = n;
-    }
-    return self->data != NULL;
-#endif
-}
+STC_INLINE void _c_MEMB(_value_drop)(const Self* self, _m_value* val)
+    { (void)self; i_keydrop(val); }
 
 STC_INLINE _m_value* _c_MEMB(_append_uninit)(Self *self, isize n) {
     isize len = self->size;
@@ -170,8 +156,24 @@ STC_INLINE _m_value _c_MEMB(_pull)(Self* self)
 STC_INLINE void _c_MEMB(_put_n)(Self* self, const _m_raw* raw, isize n)
     { while (n--) _c_MEMB(_push)(self, i_keyfrom((*raw))), ++raw; }
 
+#if !defined i_aux && !defined i_capacity
+STC_INLINE Self _c_MEMB(_init)(void)
+    { Self out = {0}; return out; }
+
+STC_INLINE Self _c_MEMB(_with_capacity)(isize cap) {
+    Self out = {i_new_n(_m_value, cap), 0, cap};
+    return out;
+}
+
+STC_INLINE Self _c_MEMB(_with_size)(isize size, _m_value null) {
+    Self out = {i_new_n(_m_value, size), size, size};
+    while (size) out.data[--size] = null;
+    return out;
+}
+
 STC_INLINE Self _c_MEMB(_from_n)(const _m_raw* raw, isize n)
     { Self cx = {0}; _c_MEMB(_put_n)(&cx, raw, n); return cx; }
+#endif
 
 STC_INLINE const _m_value* _c_MEMB(_at)(const Self* self, isize idx)
     { c_assert(c_uless(idx, self->size)); return self->data + idx; }
@@ -185,26 +187,28 @@ STC_INLINE _m_value* _c_MEMB(_emplace)(Self* self, _m_raw raw)
 #endif // !i_no_emplace
 
 #if !defined i_no_clone
-STC_INLINE Self _c_MEMB(_clone)(Self s) {
-    Self tmp = {_i_malloc(_m_value, s.size), s.size, s.size};
-    if (tmp.data == NULL) tmp.capacity = 0;
-    else for (isize i = 0; i < s.size; ++s.data)
-        tmp.data[i++] = i_keyclone((*s.data));
-    s.data = tmp.data;
-    s.capacity = tmp.capacity;
-    return s;
+STC_INLINE Self _c_MEMB(_clone)(Self stk) {
+    Self out = stk, *self = &out; (void)self; // i_keyclone may use self via i_aux
+    out.data = NULL; out.size = out.capacity = 0;
+    _c_MEMB(_reserve)(&out, stk.size);
+    out.size = stk.size;
+    for (c_range(i, stk.size))
+        out.data[i] = i_keyclone(stk.data[i]);
+    return out;
 }
 
-STC_INLINE void _c_MEMB(_copy)(Self *self, const Self other) {
-    if (self->data == other.data) return;
-    _c_MEMB(_drop)(self);
-    *self = _c_MEMB(_clone)(other);
+STC_INLINE void _c_MEMB(_copy)(Self *self, const Self* other) {
+    if (self == other) return;
+    _c_MEMB(_clear)(self);
+    _c_MEMB(_reserve)(self, other->size);
+    for (c_range(i, other->size))
+        self->data[self->size++] = i_keyclone((other->data[i]));
 }
 
-STC_INLINE _m_value _c_MEMB(_value_clone)(_m_value val)
-    { return i_keyclone(val); }
+STC_INLINE _m_value _c_MEMB(_value_clone)(const Self* self, _m_value val)
+    { (void)self; return i_keyclone(val); }
 
-STC_INLINE i_keyraw _c_MEMB(_value_toraw)(const _m_value* val)
+STC_INLINE _m_raw _c_MEMB(_value_toraw)(const _m_value* val)
     { return i_keytoraw(val); }
 #endif // !i_no_clone
 
@@ -212,13 +216,15 @@ STC_INLINE i_keyraw _c_MEMB(_value_toraw)(const _m_value* val)
 
 STC_INLINE _m_iter _c_MEMB(_begin)(const Self* self) {
     _m_iter it = {(_m_value*)self->data, (_m_value*)self->data};
-    if (it.ref != NULL) it.end += self->size;
+    if (self->size) it.end += self->size;
+    else it.ref = NULL;
     return it;
 }
 
 STC_INLINE _m_iter _c_MEMB(_rbegin)(const Self* self) {
     _m_iter it = {(_m_value*)self->data, (_m_value*)self->data};
-    if (it.ref != NULL) { it.ref += self->size - 1; it.end -= 1; }
+    if (self->size) { it.ref += self->size - 1; it.end -= 1; }
+    else it.ref = NULL;
     return it;
 }
 

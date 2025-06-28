@@ -10,8 +10,8 @@ See the c++ class [std::deque](https://en.cppreference.com/w/cpp/container/deque
 ## Header file and declaration
 
 ```c++
-#define i_type <ct>,<kt>[,<op>] // shorthand for defining i_type, i_key, i_opt
-#define i_type <t>       // deque container type name (default: deque_{i_key})
+#define T <ct>,<kt>[,<op>] // shorthand for defining T, i_key, i_opt
+#define T <ct>           // deque container type name (default: deque_{i_key})
 // One of the following:
 #define i_key <t>        // key type
 #define i_keyclass <t>   // key type, and bind <t>_clone() and <t>_drop() function names
@@ -30,11 +30,11 @@ See the c++ class [std::deque](https://en.cppreference.com/w/cpp/container/deque
 #define i_keyfrom <fn>   // conversion func i_keyraw => i_key
 #define i_keytoraw <fn>  // conversion func i_key* => i_keyraw
 
-#include "stc/deque.h"
+#include <stc/deque.h>
 ```
 - Defining either `i_use_cmp`, `i_less` or `i_cmp` will enable sorting, binary_search and lower_bound
 - **emplace**-functions are only available when `i_keyraw` is implicitly or explicitly defined.
-- In the following, `X` is the value of `i_key` unless `i_type` is defined.
+- In the following, `X` is the value of `i_key` unless `T` is defined.
 
 ## Methods
 
@@ -43,10 +43,10 @@ deque_X         deque_X_init(void);
 deque_X         deque_X_with_capacity(isize size);
 
 deque_X         deque_X_clone(deque_X deque);
-void            deque_X_copy(deque_X* self, deque_X other);
+void            deque_X_copy(deque_X* self, const deque_X* other);
 void            deque_X_take(deque_X* self, deque_X unowned);                    // take ownership of unowned
 deque_X         deque_X_move(deque_X* self);                                     // move
-void            deque_X_drop(deque_X* self);                                     // destructor
+void            deque_X_drop(const deque_X* self);                               // destructor
 
 void            deque_X_clear(deque_X* self);
 bool            deque_X_reserve(deque_X* self, isize cap);
@@ -101,7 +101,7 @@ void            deque_X_next(deque_X_iter* it);
 deque_X_iter    deque_X_advance(deque_X_iter it, isize n);
 
 bool            deque_X_eq(const deque_X* c1, const deque_X* c2); // require i_eq/i_cmp/i_less.
-i_key           deque_X_value_clone(i_key val);
+i_key           deque_X_value_clone(const deque_X* self, i_key val);
 deque_X_raw     deque_X_value_toraw(const i_key* pval);
 void            deque_X_value_drop(i_key* pval);
 ```
@@ -116,10 +116,10 @@ void            deque_X_value_drop(i_key* pval);
 
 ## Examples
 
-[ [Run this code](https://godbolt.org/z/jjsdWaKj6) ]
+[ [Run this code](https://godbolt.org/z/1TTT68fv5) ]
 ```c++
-#define i_type Deque, int32_t
-#include "stc/deque.h"
+#define T Deque, int32_t
+#include <stc/deque.h>
 #include <stdio.h>
 
 int main(void) {
